@@ -18,6 +18,7 @@ export const fetchProfileService = async (user, setProfile) => {
       localStorage.setItem('teacher_name', emailName);
       localStorage.removeItem('teacher_nip');
       localStorage.removeItem('teacher_sig');
+      localStorage.removeItem('guru_wali_group');
     }
   } catch (err) {
     console.error('Gagal fetch profil:', err);
