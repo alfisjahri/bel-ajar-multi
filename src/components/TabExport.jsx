@@ -42,23 +42,23 @@ const TabExport = ({
       <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
         <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[10.5pt] border-b pb-2">Opsi Filter Rekap Laporan PDF</h3>
         
-        <div>
-          <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500 block mb-1">Jenis Laporan</label>
-          <select 
-            className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-medium text-slate-800 dark:text-slate-100"
-            value={reportType} onChange={e => setReportType(e.target.value)}
-          >
-            <option value="mapel">📖 Mapel</option>
-            {waliClass && <option value="wali_kelas">🏫 Wali Kelas</option>}
-            <option value="guru_wali">👥 Guru Wali</option>
-          </select>
-        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 block mb-1">Jenis Laporan</label>
+            <select 
+              className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-medium text-slate-800 dark:text-slate-100"
+              value={reportType} onChange={e => setReportType(e.target.value)}
+            >
+              <option value="mapel">📖 Mapel</option>
+              {waliClass && <option value="wali_kelas">🏫 Wali Kelas</option>}
+              <option value="guru_wali">👥 Guru Wali</option>
+            </select>
+          </div>
 
-        <div className={`grid ${reportType === 'mapel' ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
           <div>
             <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 block mb-1">Periode Laporan</label>
             <select 
-              className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-semibold text-slate-700 dark:text-slate-200"
+              className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-medium text-slate-800 dark:text-slate-100"
               value={reportPeriod} onChange={e => setReportPeriod(e.target.value)}
             >
               <option value="harian">Harian (Hari Ini)</option>
@@ -71,11 +71,11 @@ const TabExport = ({
         </div>
 
         {reportType === 'mapel' && (
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-2">
-              <span className="text-slate-600 dark:text-slate-400 font-medium text-[10.5pt]">Kelas</span>
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <div>
+              <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 block mb-1">Kelas</label>
               <select 
-                className="p-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-[10.5pt] text-slate-700 dark:text-slate-200"
+                className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-medium text-slate-800 dark:text-slate-100"
                 value={reportClass} onChange={e => setReportClass(e.target.value)}
               >
                 {availableClasses.map(cls => (
@@ -83,10 +83,10 @@ const TabExport = ({
                 ))}
               </select>
             </div>
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-2">
-              <span className="text-slate-600 dark:text-slate-400 font-medium text-[10.5pt]">Mata Pelajaran</span>
+            <div>
+              <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 block mb-1">Mata Pelajaran</label>
               <select 
-                className="p-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-[10.5pt] text-slate-700 dark:text-slate-200"
+                className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-medium text-slate-800 dark:text-slate-100"
                 value={reportSubject} onChange={e => setReportSubject(e.target.value)}
               >
                 {availableSubjects.map(subj => (
