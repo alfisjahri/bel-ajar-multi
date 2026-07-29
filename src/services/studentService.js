@@ -22,12 +22,12 @@ export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedC
   } else if (jurnalMode === 'wali_kelas') {
     query = query.eq('class_name', waliClass);
   } else if (jurnalMode === 'guru_wali') {
-    if (!guruWaliGroup) {
+    if (!profile?.full_name) {
       setStudents([]);
       setFetchingStudents(false);
       return;
     }
-    query = query.eq('group_name', guruWaliGroup);
+    query = query.eq('group_name', profile.full_name);
   }
 
   const { data, error } = await query;
@@ -55,7 +55,7 @@ export const handleToggleKelompok5Service = async ({ student, profile, guruWaliG
     return Toast.fire({ icon: 'error', title: 'Silakan isi nama Kelompok Binaan (Guru Wali) di profil atau tab input.' });
   }
 
-  const isFavoritedByMe = student.group_name === guruWaliGroup;
+  const isFavoritedByMe = student.group_name === profile?.full_name;
   
   if (student.group_name && !isFavoritedByMe) {
     // If it belongs to someone else, confirm takeover
@@ -70,7 +70,7 @@ export const handleToggleKelompok5Service = async ({ student, profile, guruWaliG
     if (!result.isConfirmed) return;
   }
 
-  const newGroup = isFavoritedByMe ? null : guruWaliGroup;
+  const newGroup = isFavoritedByMe ? null : profile?.full_name;
 
   const { error } = await supabase.from('students').update({ group_name: newGroup }).eq('id', student.id);
   if (!error) {

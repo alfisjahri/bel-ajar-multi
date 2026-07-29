@@ -267,11 +267,16 @@ export const handleTriggerExportPreviewService = async ({
       { id: '2', name: 'ENDO PRATAMA', class_name: '8B' }
     ];
   } else {
-    let stQuery = supabase.from('students').select('*').order('name', { ascending: true });
     if (reportType === 'guru_wali') {
-      stQuery = stQuery.eq('group_name', guruWaliGroup || 'Kelompok 5');
-    } else if (reportType === 'wali_kelas') {
-      stQuery = stQuery.eq('class_name', waliClass || '8A');
+      targetClassName = guruWaliGroup || 'Kelompok 5'; // This is just for the header label
+    }
+
+    // Step 2: Fetch students
+    let stQuery = supabase.from('students').select('*').order('name', { ascending: true });
+    if (reportType === 'mapel' || reportType === 'wali_kelas') {
+      stQuery = stQuery.eq('class_name', targetClassName);
+    } else if (reportType === 'guru_wali') {
+      stQuery = stQuery.eq('group_name', profile?.full_name);
     } else {
       stQuery = stQuery.eq('class_name', reportClass);
     }

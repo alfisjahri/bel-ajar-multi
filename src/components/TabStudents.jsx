@@ -102,7 +102,7 @@ const TabStudents = ({
           <p className="text-[10.5pt] text-center text-slate-400 dark:text-slate-500 py-6 bg-white dark:bg-slate-800 rounded-xl border">Tidak Ditemukan.</p>
         ) : (
           filteredAllStudents.map(student => {
-            const isFavorited = student.group_name === guruWaliGroup;
+            const isFavorited = student.group_name === profile?.full_name;
 
             return (
               <div key={student.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between gap-2">
