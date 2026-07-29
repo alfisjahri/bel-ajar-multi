@@ -131,7 +131,9 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
               <th rowSpan="2" className="border border-slate-900 p-1 w-8">NO</th>
               <th rowSpan="2" className="border border-slate-900 p-1 text-left">{previewData.isIndividual ? 'TANGGAL' : 'NAMA LENGKAP SISWA'}</th>
               <th colSpan="4" className="border border-slate-900 p-1">PRESENSI</th>
-              <th rowSpan="2" className="border border-slate-900 p-1 w-16">{previewData.isIndividual ? 'CATATAN' : 'NILAI'}</th>
+              {previewData.reportType !== 'wali_kelas' && previewData.reportType !== 'guru_wali' && (
+                <th rowSpan="2" className="border border-slate-900 p-1 w-16">{previewData.isIndividual ? 'CATATAN' : 'NILAI'}</th>
+              )}
             </tr>
             <tr className="bg-slate-300 text-slate-900 font-bold text-center text-[8pt]">
               <th className="border border-slate-900 p-0.5 w-8 text-emerald-800 bg-emerald-100/60">H</th>
@@ -143,7 +145,7 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
           <tbody>
             {previewData.rows.length === 0 ? (
               <tr>
-                <td colSpan="7" className="border border-slate-800 p-3 text-center text-slate-400 italic">Belum ada riwayat data presensi.</td>
+                <td colSpan={previewData.reportType === 'wali_kelas' || previewData.reportType === 'guru_wali' ? "6" : "7"} className="border border-slate-800 p-3 text-center text-slate-400 italic">Belum ada riwayat data presensi.</td>
               </tr>
             ) : (
               previewData.rows.map((row, idx) => (
@@ -164,7 +166,9 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
                     {row.a > 0 ? row.a : '-'}
                   </td>
 
-                  <td className="border border-slate-800 p-1 text-center font-bold text-slate-800">{row.grade}</td>
+                  {previewData.reportType !== 'wali_kelas' && previewData.reportType !== 'guru_wali' && (
+                    <td className="border border-slate-800 p-1 text-center font-bold text-slate-800">{row.grade}</td>
+                  )}
                 </tr>
               ))
             )}

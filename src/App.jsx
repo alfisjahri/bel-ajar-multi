@@ -184,7 +184,7 @@ function App() {
     setPhotoPreviews(updatedPreviews);
   };
 
-  const handleOpenPrintPreview = (title, subtitle, subjectRole, rows) => {
+  const handleOpenPrintPreview = (title, subtitle, subjectRole, rows, reportType) => {
     setPreviewData({
       title,
       subtitle,
@@ -193,7 +193,8 @@ function App() {
       rows,
       teacherName: profile.full_name || 'NUR ALFI SYAHRI, S.P.',
       teacherNip: profile.nip || '-------------------',
-      signatureUrl: profile.signature_url
+      signatureUrl: profile.signature_url,
+      reportType: reportType
     });
     setShowPreviewModal(true);
   };
@@ -344,7 +345,7 @@ function App() {
             loading={loading}
             handleTriggerExportPreview={() => handleTriggerExportPreviewService({
               setLoading, reportClass, reportSubject, reportType, isDemo, reportPeriod,
-              startDate, endDate, handleOpenPrintPreview, profile
+              startDate, endDate, handleOpenPrintPreview, profile, waliClass
             })}
             isProfileOpen={isProfileOpen} setIsProfileOpen={setIsProfileOpen}
             profile={profile} setProfile={setProfile}

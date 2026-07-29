@@ -170,15 +170,14 @@ export const handleSubmitJurnalService = async ({
   let photoBase64List = [];
 
   if (photoFiles.length > 0) {
-    for (const file of photoFiles) {
-      try {
+    try {
+      photoBase64List = await Promise.all(photoFiles.map(async (file) => {
         const base64Img = await compressImageToBase64(file);
-        const cloudinaryUrl = await uploadImageToCloudinary(base64Img);
-        photoBase64List.push(cloudinaryUrl);
-      } catch (err) {
-        setLoading(false);
-        return Toast.fire({ icon: 'error', title: 'Gagal mengupload foto ke Cloudinary.' });
-      }
+        return await uploadImageToCloudinary(base64Img);
+      }));
+    } catch (err) {
+      setLoading(false);
+      return Toast.fire({ icon: 'error', title: 'Gagal mengupload foto ke Cloudinary.' });
     }
   }
 
@@ -378,20 +377,21 @@ export const handleTriggerExportPreviewService = async ({
   let subjectRoleText = `Guru Mata Pelajaran ${targetSubjectName}`;
 
   if (reportType === 'wali_kelas') {
-    reportTitle = `REKAP PRESENSI & PEMBINAAN WALI KELAS 8A (${reportPeriod.toUpperCase()})`;
-    reportSubtitle = `SMPN 1 Damai  |  Wali Kelas: 8A`;
-    subjectRoleText = `Wali Kelas 8A`;
+    reportTitle = `REKAP PRESENSI & PEMBINAAN WALI KELAS ${targetClassName} (${reportPeriod.toUpperCase()})`;
+    reportSubtitle = `SMPN 1 Damai  |  Wali Kelas: ${targetClassName}`;
+    subjectRoleText = `Wali Kelas ${targetClassName}`;
   } else if (reportType === 'guru_wali') {
     reportTitle = `REKAP PRESENSI BINAAN GURU WALI (${reportPeriod.toUpperCase()})`;
-    reportSubtitle = `SMPN 1 Damai  |  Kelompok Binaan: Kelompok 5`;
-    subjectRoleText = `Guru Wali Kelompok 5`;
+    reportSubtitle = `SMPN 1 Damai  |  Kelompok Binaan: ${targetClassName}`;
+    subjectRoleText = `Guru Wali ${targetClassName}`;
   }
 
   handleOpenPrintPreview(
     reportTitle,
     reportSubtitle,
     subjectRoleText,
-    rows
+    rows,
+    reportType
   );
   setLoading(false);
 };

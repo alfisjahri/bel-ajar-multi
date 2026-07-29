@@ -29,6 +29,7 @@ export const handleSaveProfileService = async ({ session, profile, setLoading })
 
   const updates = {
     id: session.user.id,
+    email: session.user.email,
     full_name: profile.full_name,
     nip: profile.nip,
     signature_url: profile.signature_url,
