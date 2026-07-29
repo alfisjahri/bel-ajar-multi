@@ -146,7 +146,9 @@ function App() {
         setWaliClass('');
       }
     }
-    if (profile?.guru_wali_group !== undefined && profile.guru_wali_group !== guruWaliGroup) {
+    
+    // Unconditionally sync guru_wali_group to prevent stale state
+    if (profile) {
       setGuruWaliGroup(profile.guru_wali_group || '');
     }
   }, [profile]);
