@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { Toast, Swal } from './utils';
 
-export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup, setFetchingStudents, setStudents, initAttendance }) => {
+export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup, profile, setFetchingStudents, setStudents, initAttendance }) => {
   setFetchingStudents(true);
   if (isDemo) {
     const mockData = [
