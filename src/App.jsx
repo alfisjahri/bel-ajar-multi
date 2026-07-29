@@ -403,6 +403,7 @@ function App() {
         {activeTab === 'siswa' && (
           <TabStudents 
             profile={profile}
+            waliClass={waliClass}
             guruWaliGroup={guruWaliGroup}
             allStudents={allStudents}
             searchStudentQuery={searchStudentQuery} setSearchStudentQuery={setSearchStudentQuery}

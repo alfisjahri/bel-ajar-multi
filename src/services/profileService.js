@@ -57,8 +57,14 @@ export const handleSaveProfileService = async ({ session, profile, setLoading })
   } else {
     let errMsg = '';
     if (error) errMsg += error.message + ' ';
-    if (authError) errMsg += 'Password gagal diubah: ' + authError.message;
-    Toast.fire({ icon: 'error', title: 'Gagal simpan: ' + errMsg });
+    if (authError) {
+      if (authError.message.includes('Auth session missing')) {
+        errMsg += 'Demi keamanan, silakan Logout dan Login kembali untuk mengubah password.';
+      } else {
+        errMsg += 'Password gagal diubah: ' + authError.message;
+      }
+    }
+    Swal.fire({ icon: 'error', title: 'Gagal simpan', text: errMsg });
   }
 };
 

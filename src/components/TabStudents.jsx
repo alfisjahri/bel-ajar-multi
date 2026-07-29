@@ -6,7 +6,7 @@ const TabStudents = ({
   attendanceRecordsAll, isAddingStudent, setIsAddingStudent, newStudent, setNewStudent,
   handleAddStudent, editingStudent, setEditingStudent, handleUpdateStudent, handleToggleKelompok5,
   handleShowAbsenceDetails, handleExportIndividualPDF, handleDeleteStudent,
-  guruWaliGroup
+  guruWaliGroup, waliClass
 }) => {
   const filteredAllStudents = allStudents.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchStudentQuery.toLowerCase()) ||
@@ -23,13 +23,20 @@ const TabStudents = ({
       <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
         <div className="flex justify-between items-center">
           <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[10.5pt]">Kelola Siswa</h3>
-          <button 
-            onClick={() => setIsAddingStudent(!isAddingStudent)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10.5pt] font-bold flex items-center space-x-1"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Siswa</span>
-          </button>
+          {waliClass && (
+            <button 
+              onClick={() => {
+                setIsAddingStudent(!isAddingStudent);
+                if (!isAddingStudent) {
+                  setNewStudent({ ...newStudent, class_name: waliClass });
+                }
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10.5pt] font-bold flex items-center space-x-1"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Siswa</span>
+            </button>
+          )}
         </div>
 
         {isAddingStudent && (
@@ -45,12 +52,9 @@ const TabStudents = ({
               <select 
                 className="p-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg text-[10.5pt] font-bold flex-1"
                 value={newStudent.class_name} onChange={e => setNewStudent({...newStudent, class_name: e.target.value})}
+                disabled
               >
-                <option value="7">Kelas 7</option>
-                <option value="8A">Kelas 8A</option>
-                <option value="8B">Kelas 8B</option>
-                <option value="9A">Kelas 9A</option>
-                <option value="9B">Kelas 9B</option>
+                <option value={waliClass}>Kelas {waliClass}</option>
               </select>
               <button type="submit" className="bg-emerald-600 text-white px-4 text-[10.5pt] font-bold rounded-lg">Simpan</button>
               <button type="button" onClick={() => setIsAddingStudent(false)} className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 text-[10.5pt] font-bold rounded-lg">Batal</button>
@@ -163,13 +167,25 @@ const TabStudents = ({
                         <Eye className="w-5 h-5" />
                       </button>
 
-                      <button onClick={() => setEditingStudent(student)} className="p-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-600 transition-all">
-                        <Edit className="w-5 h-5" />
-                      </button>
+                      {waliClass === student.class_name && (
+                        <button 
+                          onClick={() => setEditingStudent(student)}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                      )}
 
-                      <button onClick={() => handleDeleteStudent(student.id, student.name)} className="p-1.5 rounded-xl text-slate-400 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 transition-all">
-                        <Trash className="w-5 h-5" />
-                      </button>
+                      {waliClass === student.class_name && (
+                        <button 
+                          onClick={() => handleDeleteStudent(student.id, student.name)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                          title="Hapus"
+                        >
+                          <Trash className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
