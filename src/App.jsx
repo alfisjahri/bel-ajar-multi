@@ -170,7 +170,7 @@ function App() {
 
   useEffect(() => {
     fetchStudentsByModeService({ 
-      isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup,
+      isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup, profile,
       setFetchingStudents, setStudents, initAttendance 
     });
   }, [jurnalMode, selectedClass, waliClass, profile, isDemo]);
@@ -421,13 +421,13 @@ function App() {
             attendanceRecordsAll={attendanceRecordsAll}
             isAddingStudent={isAddingStudent} setIsAddingStudent={setIsAddingStudent}
             newStudent={newStudent} setNewStudent={setNewStudent}
-            handleAddStudent={(e) => handleAddStudentService({ e, newStudent, setNewStudent, setIsAddingStudent, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
+            handleAddStudent={(e) => handleAddStudentService({ e, newStudent, setNewStudent, setIsAddingStudent, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, profile, setFetchingStudents, setStudents, initAttendance }) })}
             editingStudent={editingStudent} setEditingStudent={setEditingStudent}
-            handleUpdateStudent={(id) => handleUpdateStudentService({ id, editingStudent, setEditingStudent, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
-            handleToggleKelompok5={(student) => handleToggleKelompok5Service({ student, profile, guruWaliGroup, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup, setFetchingStudents, setStudents, initAttendance }) })}
+            handleUpdateStudent={(id) => handleUpdateStudentService({ id, editingStudent, setEditingStudent, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, profile, setFetchingStudents, setStudents, initAttendance }) })}
+            handleToggleKelompok5={(student) => handleToggleKelompok5Service({ student, profile, guruWaliGroup, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, profile, guruWaliGroup, setFetchingStudents, setStudents, initAttendance }) })}
             handleShowAbsenceDetails={(student) => handleShowAbsenceDetailsService({ student, setFetchingStudents, setStudentAbsenceDetails })}
             handleExportIndividualPDF={handleExportIndividualPDF}
-            handleDeleteStudent={(id, name) => handleDeleteStudentService({ id, name, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
+            handleDeleteStudent={(id, name) => handleDeleteStudentService({ id, name, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, profile, setFetchingStudents, setStudents, initAttendance }) })}
           />
         )}
 
