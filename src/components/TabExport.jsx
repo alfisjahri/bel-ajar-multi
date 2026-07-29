@@ -167,6 +167,17 @@ const TabExport = ({
               />
             </div>
 
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500 block mb-1">Ganti Password (Opsional)</label>
+              <input 
+                type="password" className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-medium"
+                placeholder="Kosongkan jika tidak ingin ganti password"
+                value={profile.new_password || ''} 
+                onChange={e => setProfile({...profile, new_password: e.target.value})}
+              />
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">*Minimal 6 karakter. Password baru akan aktif saat login berikutnya.</p>
+            </div>
+
             <div>
               <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500 block mb-1">Upload File Gambar TTD (PNG/JPG)</label>
               <input 

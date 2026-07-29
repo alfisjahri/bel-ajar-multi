@@ -40,12 +40,24 @@ export const handleSaveProfileService = async ({ session, profile, setLoading })
   if (profile.signature_url) localStorage.setItem('teacher_sig', profile.signature_url);
 
   const { error } = await supabase.from('profiles').upsert(updates);
+  
+  let authError = null;
+  if (profile.new_password && profile.new_password.trim() !== '') {
+    const { error: passError } = await supabase.auth.updateUser({ password: profile.new_password });
+    authError = passError;
+  }
+
   setLoading(false);
 
-  if (!error) {
-    Toast.fire({ icon: 'success', title: 'Profil & NIP Tersimpan!' });
+  if (!error && !authError) {
+    Toast.fire({ icon: 'success', title: 'Profil, NIP & Pengaturan Tersimpan!' });
+    // Reset temporary password field
+    profile.new_password = '';
   } else {
-    Toast.fire({ icon: 'error', title: 'Gagal simpan: ' + error.message });
+    let errMsg = '';
+    if (error) errMsg += error.message + ' ';
+    if (authError) errMsg += 'Password gagal diubah: ' + authError.message;
+    Toast.fire({ icon: 'error', title: 'Gagal simpan: ' + errMsg });
   }
 };
 
