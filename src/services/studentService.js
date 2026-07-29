@@ -50,12 +50,12 @@ export const fetchAllStudentsService = async ({ isDemo, setAllStudents, setAtten
   if (attData) setAttendanceRecordsAll(attData);
 };
 
-export const handleToggleKelompok5Service = async ({ student, profile, fetchAllStudents, fetchStudentsByMode }) => {
-  if (!profile?.full_name) {
-    return Toast.fire({ icon: 'error', title: 'Data profil guru tidak ditemukan.' });
+export const handleToggleKelompok5Service = async ({ student, profile, guruWaliGroup, fetchAllStudents, fetchStudentsByMode }) => {
+  if (!guruWaliGroup) {
+    return Toast.fire({ icon: 'error', title: 'Silakan isi nama Kelompok Binaan (Guru Wali) di profil atau tab input.' });
   }
 
-  const isFavoritedByMe = student.group_name === profile.full_name;
+  const isFavoritedByMe = student.group_name === guruWaliGroup;
   
   if (student.group_name && !isFavoritedByMe) {
     // If it belongs to someone else, confirm takeover
@@ -70,7 +70,7 @@ export const handleToggleKelompok5Service = async ({ student, profile, fetchAllS
     if (!result.isConfirmed) return;
   }
 
-  const newGroup = isFavoritedByMe ? null : profile.full_name;
+  const newGroup = isFavoritedByMe ? null : guruWaliGroup;
 
   const { error } = await supabase.from('students').update({ group_name: newGroup }).eq('id', student.id);
   if (!error) {

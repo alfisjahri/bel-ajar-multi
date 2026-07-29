@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { getWitaDateString } from './services/utils';
+import { Swal } from './services/utils';
 
 // Import Services
 import { handleLoginService, handleLogoutService } from './services/authService';
@@ -63,7 +64,7 @@ function App() {
   // State Wali Kelas (8A) & Guru Wali (Kelompok 5)
   const [waliClass, setWaliClass] = useState('8A');
   const [waliNotes, setWaliNotes] = useState('');
-  const [guruWaliGroup, setGuruWaliGroup] = useState('');
+  const [guruWaliGroup, setGuruWaliGroup] = useState(localStorage.getItem('guru_wali_group') || '');
 
   // Filter Rekap Laporan PDF
   const [reportType, setReportType] = useState('mapel'); 
@@ -163,7 +164,7 @@ function App() {
 
   useEffect(() => {
     fetchStudentsByModeService({ 
-      isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup: profile?.full_name,
+      isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup,
       setFetchingStudents, setStudents, initAttendance 
     });
   }, [jurnalMode, selectedClass, waliClass, profile, isDemo]);
@@ -204,34 +205,82 @@ function App() {
     if (!isDemo) {
       const { data } = await supabase
         .from('attendance')
-        .select('status, date, notes')
+        .select('status, date, notes, journals!inner(subject)')
         .eq('student_id', student.id)
         .order('date', { ascending: false });
       if (data) studentAtt = data;
     }
 
+    const uniqueSubjects = [...new Set(studentAtt.map(a => a.journals.subject))];
+    const mapelSubjects = uniqueSubjects.filter(s => s !== 'Pembinaan Wali Kelas' && s !== 'Presensi Guru Wali');
+
+    let htmlOptions = `<option value="ALL_MAPEL">Semua Mata Pelajaran</option>`;
+    mapelSubjects.forEach(s => {
+      htmlOptions += `<option value="${s}">Mapel: ${s}</option>`;
+    });
+    if (uniqueSubjects.includes('Pembinaan Wali Kelas')) {
+      htmlOptions += `<option value="Pembinaan Wali Kelas">Wali Kelas</option>`;
+    }
+    if (uniqueSubjects.includes('Presensi Guru Wali')) {
+      htmlOptions += `<option value="Presensi Guru Wali">Guru Wali</option>`;
+    }
+
+    const { value: selectedPrintSubject } = await Swal.fire({
+      title: 'Opsi Cetak PDF',
+      html: `<select id="print-subject-select" class="swal2-select" style="display:flex; width:90%; font-size:11pt;">
+              ${htmlOptions}
+             </select>`,
+      showCancelButton: true,
+      confirmButtonText: 'Cetak',
+      cancelButtonText: 'Batal',
+      preConfirm: () => document.getElementById('print-subject-select').value
+    });
+
+    if (!selectedPrintSubject) return;
+
+    let filteredAtt = [];
+    let reportType = 'mapel';
+    let subjectRole = 'Guru Mata Pelajaran';
+    let subtitleText = `Nama: ${student.name} | Kelas: ${student.class_name}`;
+
+    if (selectedPrintSubject === 'Pembinaan Wali Kelas') {
+      filteredAtt = studentAtt.filter(a => a.journals.subject === 'Pembinaan Wali Kelas');
+      reportType = 'wali_kelas';
+      subjectRole = `Wali Kelas ${student.class_name}`;
+    } else if (selectedPrintSubject === 'Presensi Guru Wali') {
+      filteredAtt = studentAtt.filter(a => a.journals.subject === 'Presensi Guru Wali');
+      reportType = 'guru_wali';
+      subjectRole = `Guru Wali`;
+      subtitleText = `Nama: ${student.name} | Kelompok Binaan: ${student.group_name || '-'}`;
+    } else if (selectedPrintSubject === 'ALL_MAPEL') {
+      filteredAtt = studentAtt.filter(a => a.journals.subject !== 'Pembinaan Wali Kelas' && a.journals.subject !== 'Presensi Guru Wali');
+    } else {
+      filteredAtt = studentAtt.filter(a => a.journals.subject === selectedPrintSubject);
+      subtitleText += ` | Mapel: ${selectedPrintSubject}`;
+    }
+
     const summary = { H: 0, S: 0, I: 0, A: 0 };
-    studentAtt.forEach(a => {
+    filteredAtt.forEach(a => {
       if (a.status === 'Hadir') summary.H++;
       else if (a.status === 'Sakit') summary.S++;
       else if (a.status === 'Izin') summary.I++;
       else if (a.status === 'Alfa') summary.A++;
     });
 
-    const rows = studentAtt.map((a, idx) => ({
+    const rows = filteredAtt.map((a, idx) => ({
       no: idx + 1,
       name: new Date(a.date).toLocaleDateString('id-ID'),
       h: a.status === 'Hadir' ? 1 : 0,
       s: a.status === 'Sakit' ? 1 : 0,
       i: a.status === 'Izin' ? 1 : 0,
       a: a.status === 'Alfa' ? 1 : 0,
-      grade: a.notes || '-'
+      grade: (reportType === 'mapel' && selectedPrintSubject === 'ALL_MAPEL') ? `${a.journals.subject} (${a.notes || '-'})` : (a.notes || '-')
     }));
 
     setPreviewData({
       title: `REKAP PRESENSI INDIVIDUAL SISWA`,
-      subtitle: `Nama: ${student.name} | Kelas: ${student.class_name}`,
-      subjectRole: `Guru / Pembimbing`,
+      subtitle: subtitleText,
+      subjectRole: subjectRole,
       isIndividual: true,
       summary,
       rows,
@@ -279,7 +328,10 @@ function App() {
             selectedSubject={selectedSubject} setSelectedSubject={setSelectedSubject}
             waliClass={waliClass} setWaliClass={setWaliClass}
             waliNotes={waliNotes} setWaliNotes={setWaliNotes}
-            guruWaliGroup={profile?.full_name || ''} setGuruWaliGroup={() => {}}
+            guruWaliGroup={guruWaliGroup} setGuruWaliGroup={(val) => {
+              setGuruWaliGroup(val);
+              localStorage.setItem('guru_wali_group', val);
+            }}
             material={material} setMaterial={setMaterial}
             photoFiles={photoFiles} photoPreviews={photoPreviews}
             handlePhotoSelect={handlePhotoSelect} handleRemovePhoto={handleRemovePhoto}
@@ -317,6 +369,7 @@ function App() {
         {activeTab === 'siswa' && (
           <TabStudents 
             profile={profile}
+            guruWaliGroup={guruWaliGroup}
             allStudents={allStudents}
             searchStudentQuery={searchStudentQuery} setSearchStudentQuery={setSearchStudentQuery}
             attendanceFilter={attendanceFilter} setAttendanceFilter={setAttendanceFilter}
@@ -326,7 +379,7 @@ function App() {
             handleAddStudent={(e) => handleAddStudentService({ e, newStudent, setNewStudent, setIsAddingStudent, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
             editingStudent={editingStudent} setEditingStudent={setEditingStudent}
             handleUpdateStudent={(id) => handleUpdateStudentService({ id, editingStudent, setEditingStudent, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
-            handleToggleKelompok5={(student) => handleToggleKelompok5Service({ student, profile, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup: profile?.full_name, setFetchingStudents, setStudents, initAttendance }) })}
+            handleToggleKelompok5={(student) => handleToggleKelompok5Service({ student, profile, guruWaliGroup, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup, setFetchingStudents, setStudents, initAttendance }) })}
             handleShowAbsenceDetails={(student) => handleShowAbsenceDetailsService({ student, setFetchingStudents, setStudentAbsenceDetails })}
             handleExportIndividualPDF={handleExportIndividualPDF}
             handleDeleteStudent={(id, name) => handleDeleteStudentService({ id, name, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
@@ -345,7 +398,7 @@ function App() {
             loading={loading}
             handleTriggerExportPreview={() => handleTriggerExportPreviewService({
               setLoading, reportClass, reportSubject, reportType, isDemo, reportPeriod,
-              startDate, endDate, handleOpenPrintPreview, profile, waliClass
+              startDate, endDate, handleOpenPrintPreview, profile, waliClass, guruWaliGroup
             })}
             isProfileOpen={isProfileOpen} setIsProfileOpen={setIsProfileOpen}
             profile={profile} setProfile={setProfile}

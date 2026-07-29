@@ -5,7 +5,8 @@ const TabStudents = ({
   profile, allStudents, searchStudentQuery, setSearchStudentQuery, attendanceFilter, setAttendanceFilter,
   attendanceRecordsAll, isAddingStudent, setIsAddingStudent, newStudent, setNewStudent,
   handleAddStudent, editingStudent, setEditingStudent, handleUpdateStudent, handleToggleKelompok5,
-  handleShowAbsenceDetails, handleExportIndividualPDF, handleDeleteStudent
+  handleShowAbsenceDetails, handleExportIndividualPDF, handleDeleteStudent,
+  guruWaliGroup
 }) => {
   const filteredAllStudents = allStudents.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchStudentQuery.toLowerCase()) ||
@@ -97,7 +98,7 @@ const TabStudents = ({
           <p className="text-[10.5pt] text-center text-slate-400 dark:text-slate-500 py-6 bg-white dark:bg-slate-800 rounded-xl border">Tidak Ditemukan.</p>
         ) : (
           filteredAllStudents.map(student => {
-            const isFavorited = student.group_name === profile?.full_name;
+            const isFavorited = student.group_name === guruWaliGroup;
 
             return (
               <div key={student.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between gap-2">

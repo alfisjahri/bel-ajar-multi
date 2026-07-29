@@ -26,7 +26,7 @@ export const handleStartEditJournalService = async ({ journal, editingJournal, s
   let studentListQuery = supabase.from('students').select('*').order('name', { ascending: true });
 
   if (journal.subject === 'Presensi Guru Wali') {
-    studentListQuery = studentListQuery.eq('group_name', 'Kelompok 5');
+    studentListQuery = studentListQuery.eq('group_name', journal.class_name);
   } else {
     studentListQuery = studentListQuery.eq('class_name', journal.class_name);
   }
@@ -245,7 +245,7 @@ export const handleSubmitJurnalService = async ({
 
 export const handleTriggerExportPreviewService = async ({
   setLoading, reportClass, reportSubject, reportType, isDemo, reportPeriod,
-  startDate, endDate, handleOpenPrintPreview, profile
+  startDate, endDate, handleOpenPrintPreview, profile, waliClass, guruWaliGroup
 }) => {
   setLoading(true);
   let targetStudents = [];
@@ -254,10 +254,10 @@ export const handleTriggerExportPreviewService = async ({
   let targetSubjectName = reportSubject;
 
   if (reportType === 'wali_kelas') {
-    targetClassName = '8A';
+    targetClassName = waliClass || '8A';
     targetSubjectName = 'Pembinaan Wali Kelas';
   } else if (reportType === 'guru_wali') {
-    targetClassName = 'Kelompok 5';
+    targetClassName = guruWaliGroup || 'Kelompok 5';
     targetSubjectName = 'Presensi Guru Wali';
   }
 
@@ -269,9 +269,9 @@ export const handleTriggerExportPreviewService = async ({
   } else {
     let stQuery = supabase.from('students').select('*').order('name', { ascending: true });
     if (reportType === 'guru_wali') {
-      stQuery = stQuery.eq('group_name', 'Kelompok 5');
+      stQuery = stQuery.eq('group_name', guruWaliGroup || 'Kelompok 5');
     } else if (reportType === 'wali_kelas') {
-      stQuery = stQuery.eq('class_name', '8A');
+      stQuery = stQuery.eq('class_name', waliClass || '8A');
     } else {
       stQuery = stQuery.eq('class_name', reportClass);
     }

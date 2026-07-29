@@ -125,9 +125,13 @@ const TabInput = ({
             {jurnalMode === 'guru_wali' && (
               <div className="flex items-center gap-2 whitespace-nowrap">
                 <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400">Guru Wali</label>
-                <div className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10.5pt] font-bold text-slate-700 dark:text-slate-200">
-                  {profile?.full_name}
-                </div>
+                <input 
+                  type="text"
+                  className="py-1.5 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[10.5pt] font-bold text-slate-700 dark:text-slate-200 outline-none w-32"
+                  placeholder="Misal: Kel 5"
+                  value={guruWaliGroup}
+                  onChange={e => setGuruWaliGroup(e.target.value)}
+                />
               </div>
             )}
           </div>
