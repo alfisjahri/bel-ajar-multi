@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { RefreshCw, Search, Filter, ArrowUpDown, Edit, Trash, Image as ImageIcon } from 'lucide-react';
+import { getTeacherData } from '../utils/constants';
 
 const TabReview = ({
   journalsHistory, fetchingHistory, fetchJournalsHistory, reviewSearchQuery,
@@ -7,16 +8,30 @@ const TabReview = ({
   reviewClassFilter, setReviewClassFilter, reviewSortOrder, setReviewSortOrder,
   editingJournal, handleStartEditJournal, handleDeleteJournal,
   setEditingJournal, editStudentsList, handleSaveFullJournal, savingEdit,
-  setSelectedImageModal
+  setSelectedImageModal, profile
 }) => {
+  const teacherData = getTeacherData(profile?.full_name) || {
+    "MATEMATIKA": ["7", "8A", "8B"],
+    "KODING & KA": ["8A", "8B", "9A", "9B"]
+  };
+  const availableSubjects = Object.keys(teacherData);
+  const availableClasses = [...new Set(Object.values(teacherData).flat())].sort();
+
+  useEffect(() => {
+    if (reviewSubjectFilter !== 'ALL' && reviewSubjectFilter !== 'Wali Kelas' && reviewSubjectFilter !== 'Guru Wali') {
+      if (!availableSubjects.includes(reviewSubjectFilter)) {
+        setReviewSubjectFilter('ALL');
+      }
+    }
+  }, [profile?.full_name, reviewSubjectFilter, availableSubjects]);
+
   const filteredJournalsHistory = journalsHistory
     .filter(j => {
       const matchesText = (j.material || '').toLowerCase().includes(reviewSearchQuery.toLowerCase());
       let matchesSubject = true;
-      if (reviewSubjectFilter === 'Matematika') matchesSubject = j.subject === 'Matematika';
-      else if (reviewSubjectFilter === 'Koding') matchesSubject = j.subject === 'Koding';
-      else if (reviewSubjectFilter === 'Wali Kelas') matchesSubject = j.subject === 'Pembinaan Wali Kelas';
+      if (reviewSubjectFilter === 'Wali Kelas') matchesSubject = j.subject === 'Pembinaan Wali Kelas';
       else if (reviewSubjectFilter === 'Guru Wali') matchesSubject = j.subject === 'Presensi Guru Wali';
+      else if (reviewSubjectFilter !== 'ALL') matchesSubject = j.subject === reviewSubjectFilter;
 
       let matchesClass = true;
       if (reviewClassFilter !== 'ALL') matchesClass = j.class_name === reviewClassFilter;
@@ -64,11 +79,9 @@ const TabReview = ({
               onChange={e => setReviewClassFilter(e.target.value)}
             >
               <option value="ALL">Semua Kelas</option>
-              <option value="7">Kelas 7</option>
-              <option value="8A">Kelas 8A</option>
-              <option value="8B">Kelas 8B</option>
-              <option value="9A">Kelas 9A</option>
-              <option value="9B">Kelas 9B</option>
+              {availableClasses.map(cls => (
+                <option key={cls} value={cls}>Kelas {cls}</option>
+              ))}
             </select>
           </div>
 
@@ -79,8 +92,7 @@ const TabReview = ({
           </span>
           {[
             { key: 'ALL', label: 'Semua' },
-            { key: 'Matematika', label: 'Matematika' },
-            { key: 'Koding', label: 'Koding' },
+            ...availableSubjects.map(subj => ({ key: subj, label: subj })),
             { key: 'Wali Kelas', label: 'Wali Kelas' },
             { key: 'Guru Wali', label: 'Guru Wali' },
           ].map(chip => (
@@ -279,7 +291,7 @@ const TabReview = ({
                       <Edit className="w-5 h-5" />
                     </button>
                     <button 
-                      onClick={() => handleDeleteJournal(j.id)}
+                      onClick={() => handleDeleteJournal(j)}
                       className="flex-1 min-h-[44px] bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
                       title="Hapus Jurnal"
                     >

@@ -1,12 +1,13 @@
 import { supabase } from '../supabaseClient';
-import { Toast, Swal, compressImageToBase64 } from './utils';
+import { Toast, Swal, compressImageToBase64, uploadImageToCloudinary, deleteImageFromCloudinary } from './utils';
 
-export const fetchJournalsHistoryService = async ({ isDemo, setFetchingHistory, setJournalsHistory }) => {
-  if (isDemo) return;
+export const fetchJournalsHistoryService = async ({ isDemo, setFetchingHistory, setJournalsHistory, profile }) => {
+  if (isDemo || !profile?.full_name) return;
   setFetchingHistory(true);
   const { data, error } = await supabase
     .from('journals')
     .select('*')
+    .eq('teacher_name', profile.full_name)
     .order('created_at', { ascending: false });
 
   if (!error && data) {
@@ -115,10 +116,10 @@ export const handleSaveFullJournalService = async ({ editingJournal, setSavingEd
   fetchJournalsHistory();
 };
 
-export const handleDeleteJournalService = ({ journalId, fetchJournalsHistory }) => {
+export const handleDeleteJournalService = ({ journal, fetchJournalsHistory }) => {
   Swal.fire({
     title: 'Hapus Jurnal Ini?',
-    text: 'Data presensi dan nilai terkait akan ikut terhapus permanen.',
+    text: 'Data presensi, nilai, dan dokumentasi terkait akan ikut terhapus permanen.',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#ef4444',
@@ -127,11 +128,24 @@ export const handleDeleteJournalService = ({ journalId, fetchJournalsHistory }) 
     cancelButtonText: 'Batal'
   }).then(async (result) => {
     if (result.isConfirmed) {
-      await supabase.from('attendance').delete().eq('journal_id', journalId);
-      await supabase.from('grades').delete().eq('journal_id', journalId);
-      const { error } = await supabase.from('journals').delete().eq('id', journalId);
+      // Parse photos if it's stringified JSON
+      let photoList = journal.photos || [];
+      if (typeof photoList === 'string') {
+        try { photoList = JSON.parse(photoList); } catch(e) { photoList = [photoList]; }
+      }
+
+      await supabase.from('attendance').delete().eq('journal_id', journal.id);
+      await supabase.from('grades').delete().eq('journal_id', journal.id);
+      const { error } = await supabase.from('journals').delete().eq('id', journal.id);
 
       if (!error) {
+        // Delete images from Cloudinary silently in background
+        if (Array.isArray(photoList) && photoList.length > 0) {
+          photoList.forEach(url => {
+            if (url) deleteImageFromCloudinary(url);
+          });
+        }
+        
         Toast.fire({ icon: 'success', title: 'Jurnal berhasil dihapus' });
         fetchJournalsHistory();
       } else {
@@ -143,8 +157,8 @@ export const handleDeleteJournalService = ({ journalId, fetchJournalsHistory }) 
 
 export const handleSubmitJurnalService = async ({
   isDemo, jurnalMode, material, setLoading, photoFiles, journalDate, selectedClass,
-  selectedSubject, waliClass, waliNotes, students, attendance, grades,
-  setMaterial, setWaliNotes, setPhotos, setPhotoPreviews, setGrades, initAttendance
+  selectedSubject, waliClass, waliNotes, guruWaliGroup, students, attendance, grades,
+  setMaterial, setWaliNotes, setGuruWaliGroup, setPhotos, setPhotoPreviews, setGrades, initAttendance, profile
 }) => {
   if (isDemo) return Toast.fire({ icon: 'info', title: 'Mode Demo: Data tidak tersimpan.' });
   
@@ -157,8 +171,14 @@ export const handleSubmitJurnalService = async ({
 
   if (photoFiles.length > 0) {
     for (const file of photoFiles) {
-      const base64Img = await compressImageToBase64(file);
-      photoBase64List.push(base64Img);
+      try {
+        const base64Img = await compressImageToBase64(file);
+        const cloudinaryUrl = await uploadImageToCloudinary(base64Img);
+        photoBase64List.push(cloudinaryUrl);
+      } catch (err) {
+        setLoading(false);
+        return Toast.fire({ icon: 'error', title: 'Gagal mengupload foto ke Cloudinary.' });
+      }
     }
   }
 
@@ -171,11 +191,11 @@ export const handleSubmitJurnalService = async ({
   if (jurnalMode === 'wali_kelas') {
     saveClassName = waliClass;
     saveSubject = 'Pembinaan Wali Kelas';
-    saveMaterial = waliNotes.trim() || 'Presensi Harian Wali Kelas 8A';
+    saveMaterial = waliNotes.trim() || `Presensi Harian Wali Kelas ${waliClass}`;
   } else if (jurnalMode === 'guru_wali') {
-    saveClassName = 'Kelompok 5';
+    saveClassName = guruWaliGroup || 'Kelompok 5';
     saveSubject = 'Presensi Guru Wali';
-    saveMaterial = waliNotes.trim() || 'Presensi Harian Binaan Guru Wali (Kelompok 5)';
+    saveMaterial = waliNotes.trim() || `Presensi Harian Binaan Guru Wali (${guruWaliGroup || 'Kelompok 5'})`;
   }
 
   const { data: journal, error } = await supabase.from('journals').insert([
@@ -184,7 +204,8 @@ export const handleSubmitJurnalService = async ({
       subject: saveSubject, 
       material: saveMaterial, 
       photos: photoBase64List,
-      created_at: customEntryDate 
+      created_at: customEntryDate,
+      teacher_name: profile.full_name || 'NUR ALFI SYAHRI, S.P.'
     }
   ]).select().single();
 
@@ -212,6 +233,7 @@ export const handleSubmitJurnalService = async ({
 
     setMaterial('');
     setWaliNotes('');
+    if (setGuruWaliGroup) setGuruWaliGroup('');
     setPhotos([]);
     setPhotoPreviews([]);
     setGrades({});

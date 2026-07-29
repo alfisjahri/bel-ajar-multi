@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { Toast, Swal } from './utils';
 
-export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) => {
+export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup, setFetchingStudents, setStudents, initAttendance }) => {
   setFetchingStudents(true);
   if (isDemo) {
     const mockData = [
@@ -22,7 +22,12 @@ export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedC
   } else if (jurnalMode === 'wali_kelas') {
     query = query.eq('class_name', waliClass);
   } else if (jurnalMode === 'guru_wali') {
-    query = query.eq('group_name', 'Kelompok 5');
+    if (!guruWaliGroup) {
+      setStudents([]);
+      setFetchingStudents(false);
+      return;
+    }
+    query = query.eq('group_name', guruWaliGroup);
   }
 
   const { data, error } = await query;
@@ -45,24 +50,38 @@ export const fetchAllStudentsService = async ({ isDemo, setAllStudents, setAtten
   if (attData) setAttendanceRecordsAll(attData);
 };
 
-export const handleToggleKelompok5Service = async ({ student, fetchAllStudents, fetchStudentsByMode }) => {
-  const isCurrentlyK5 = student.group_name === 'Kelompok 5';
-  const newGroup = isCurrentlyK5 ? null : 'Kelompok 5';
+export const handleToggleKelompok5Service = async ({ student, profile, fetchAllStudents, fetchStudentsByMode }) => {
+  if (!profile?.full_name) {
+    return Toast.fire({ icon: 'error', title: 'Data profil guru tidak ditemukan.' });
+  }
 
-  const { error } = await supabase
-    .from('students')
-    .update({ group_name: newGroup })
-    .eq('id', student.id);
+  const isFavoritedByMe = student.group_name === profile.full_name;
+  
+  if (student.group_name && !isFavoritedByMe) {
+    // If it belongs to someone else, confirm takeover
+    const result = await Swal.fire({
+      title: 'Sudah Dibina Guru Lain',
+      text: `${student.name} saat ini dibina oleh ${student.group_name}. Pindahkan ke binaan Anda?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Pindahkan',
+      cancelButtonText: 'Batal'
+    });
+    if (!result.isConfirmed) return;
+  }
 
+  const newGroup = isFavoritedByMe ? null : profile.full_name;
+
+  const { error } = await supabase.from('students').update({ group_name: newGroup }).eq('id', student.id);
   if (!error) {
     Toast.fire({ 
       icon: 'success', 
-      title: isCurrentlyK5 ? `${student.name} dilepas dari Kelompok 5` : `${student.name} ditandai Kelompok 5` 
+      title: isFavoritedByMe ? `${student.name} dilepas dari binaan Anda` : `${student.name} ditambahkan ke binaan Anda` 
     });
     fetchAllStudents();
     fetchStudentsByMode();
   } else {
-    Toast.fire({ icon: 'error', title: 'Gagal update kelompok' });
+    Toast.fire({ icon: 'error', title: 'Gagal mengubah status binaan' });
   }
 };
 

@@ -1,13 +1,42 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Eye, Settings, ChevronUp, ChevronDown } from 'lucide-react';
+import { getTeacherData } from '../utils/constants';
 
 const TabExport = ({
   reportType, setReportType, reportPeriod, setReportPeriod, reportClass, setReportClass,
   reportSubject, setReportSubject, startDate, setStartDateFilter, endDate, setEndDateFilter,
   loading, handleTriggerExportPreview, isProfileOpen, setIsProfileOpen,
   profile, setProfile, handleSaveProfile, handleSignatureUpload,
-  isDarkMode, setIsDarkMode
+  isDarkMode, setIsDarkMode, waliClass
 }) => {
+  const teacherData = getTeacherData(profile?.full_name) || {
+    "MATEMATIKA": ["7", "8A", "8B"],
+    "KODING & KA": ["8A", "8B", "9A", "9B"]
+  };
+  
+  const availableClasses = [...new Set(Object.values(teacherData).flat())].sort();
+  const availableSubjects = Object.keys(teacherData).filter(subj => teacherData[subj].includes(reportClass));
+
+  useEffect(() => {
+    if (reportType === 'mapel') {
+      let currentClass = reportClass;
+      
+      // If current class is invalid, pick the first available class
+      if (!availableClasses.includes(currentClass) && availableClasses.length > 0) {
+        currentClass = availableClasses[0];
+        setReportClass(currentClass);
+      }
+      
+      // Get subjects for this class
+      const subjectsForClass = Object.keys(teacherData).filter(subj => teacherData[subj].includes(currentClass));
+      
+      // If current subject is invalid for this class, pick the first available subject
+      if (!subjectsForClass.includes(reportSubject) && subjectsForClass.length > 0) {
+        setReportSubject(subjectsForClass[0]);
+      }
+    }
+  }, [profile?.full_name, reportClass, reportSubject, reportType]);
+
   return (
     <div className="space-y-4">
       <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm space-y-3">
@@ -20,7 +49,7 @@ const TabExport = ({
             value={reportType} onChange={e => setReportType(e.target.value)}
           >
             <option value="mapel">📖 Mapel</option>
-            <option value="wali_kelas">🏫 Wali Kelas</option>
+            {waliClass && <option value="wali_kelas">🏫 Wali Kelas</option>}
             <option value="guru_wali">👥 Guru Wali</option>
           </select>
         </div>
@@ -39,38 +68,32 @@ const TabExport = ({
               <option value="custom">Tentukan Tanggal</option>
             </select>
           </div>
-
-          {reportType === 'mapel' && (
-            <div>
-              <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 block mb-1">Kelas Laporan</label>
-              <select 
-                className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-semibold text-slate-700 dark:text-slate-200"
-                value={reportClass} onChange={e => setReportClass(e.target.value)}
-              >
-                <option value="7">Kelas 7</option>
-                <option value="8A">Kelas 8A</option>
-                <option value="8B">Kelas 8B</option>
-                <option value="9A">Kelas 9A</option>
-                <option value="9B">Kelas 9B</option>
-              </select>
-            </div>
-          )}
         </div>
 
         {reportType === 'mapel' && (
-          <div>
-            <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500 block mb-1">Mapel Laporan</label>
-            <select 
-              className="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-semibold text-slate-700 dark:text-slate-200"
-              value={reportSubject} onChange={e => setReportSubject(e.target.value)}
-            >
-              {(reportClass === '7' || reportClass === '8A' || reportClass === '8B') && (
-                <option value="Matematika">Matematika</option>
-              )}
-              {(reportClass === '8A' || reportClass === '8B' || reportClass === '9A' || reportClass === '9B') && (
-                <option value="Koding">Koding</option>
-              )}
-            </select>
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-2">
+              <span className="text-slate-600 dark:text-slate-400 font-medium text-[10.5pt]">Kelas</span>
+              <select 
+                className="p-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-[10.5pt] text-slate-700 dark:text-slate-200"
+                value={reportClass} onChange={e => setReportClass(e.target.value)}
+              >
+                {availableClasses.map(cls => (
+                  <option key={cls} value={cls}>{cls}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-2">
+              <span className="text-slate-600 dark:text-slate-400 font-medium text-[10.5pt]">Mata Pelajaran</span>
+              <select 
+                className="p-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-[10.5pt] text-slate-700 dark:text-slate-200"
+                value={reportSubject} onChange={e => setReportSubject(e.target.value)}
+              >
+                {availableSubjects.map(subj => (
+                  <option key={subj} value={subj}>{subj}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 

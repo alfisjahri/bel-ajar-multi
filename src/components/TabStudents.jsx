@@ -2,7 +2,7 @@ import React from 'react';
 import { Plus, Search, Filter, Save, X, Star, AlertCircle, Eye, Edit, Trash } from 'lucide-react';
 
 const TabStudents = ({
-  allStudents, searchStudentQuery, setSearchStudentQuery, attendanceFilter, setAttendanceFilter,
+  profile, allStudents, searchStudentQuery, setSearchStudentQuery, attendanceFilter, setAttendanceFilter,
   attendanceRecordsAll, isAddingStudent, setIsAddingStudent, newStudent, setNewStudent,
   handleAddStudent, editingStudent, setEditingStudent, handleUpdateStudent, handleToggleKelompok5,
   handleShowAbsenceDetails, handleExportIndividualPDF, handleDeleteStudent
@@ -97,7 +97,7 @@ const TabStudents = ({
           <p className="text-[10.5pt] text-center text-slate-400 dark:text-slate-500 py-6 bg-white dark:bg-slate-800 rounded-xl border">Tidak Ditemukan.</p>
         ) : (
           filteredAllStudents.map(student => {
-            const isK5 = student.group_name === 'Kelompok 5';
+            const isFavorited = student.group_name === profile?.full_name;
 
             return (
               <div key={student.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between gap-2">
@@ -133,14 +133,14 @@ const TabStudents = ({
                         <button 
                           onClick={() => handleToggleKelompok5(student)}
                           className={`text-[10.5pt] font-bold px-2.5 py-1 rounded-lg flex items-center space-x-1 transition-all ${
-                            isK5 
+                            isFavorited 
                               ? 'bg-amber-500 text-white shadow' 
                               : 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
                           }`}
-                          title="Klik untuk tambah/lepas dari Binaan Kelompok 5"
+                          title="Tandai sebagai Binaan Guru Wali Anda"
                         >
                           <Star className="w-3 h-3 fill-current" />
-                          <span>{isK5 ? 'Kelompok 5' : '+ K5'}</span>
+                          <span>{isFavorited ? 'Binaan Anda' : '+ Favorit'}</span>
                         </button>
                       </div>
                     </div>

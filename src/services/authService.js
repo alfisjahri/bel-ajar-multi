@@ -33,7 +33,7 @@ export const handleLoginService = async ({ email, password, loginAttempts, setLo
         text: 'Login gagal 3 kali berturut-turut untuk keamanan.'
       });
     } else {
-      Toast.fire({ icon: 'error', title: `Gagal Login! Sisa ${3 - newAttempts}x` });
+      Toast.fire({ icon: 'error', title: `Gagal Login: ${error.message} (Sisa ${3 - newAttempts}x)` });
     }
   } else {
     localStorage.removeItem('login_attempts');
@@ -55,6 +55,9 @@ export const handleLogoutService = (setIsDemo) => {
   }).then((res) => {
     if (res.isConfirmed) {
       supabase.auth.signOut();
+      localStorage.removeItem('teacher_name');
+      localStorage.removeItem('teacher_nip');
+      localStorage.removeItem('teacher_sig');
       setIsDemo(false);
       Toast.fire({ icon: 'success', title: 'Berhasil Keluar' });
     }

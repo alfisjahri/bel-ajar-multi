@@ -14,6 +14,7 @@ import {
   fetchJournalsHistoryService, handleStartEditJournalService, handleSaveFullJournalService,
   handleDeleteJournalService, handleSubmitJurnalService, handleTriggerExportPreviewService 
 } from './services/journalService';
+import { getWaliClass } from './utils/constants';
 
 // Import Components
 import LoginScreen from './components/LoginScreen';
@@ -62,6 +63,7 @@ function App() {
   // State Wali Kelas (8A) & Guru Wali (Kelompok 5)
   const [waliClass, setWaliClass] = useState('8A');
   const [waliNotes, setWaliNotes] = useState('');
+  const [guruWaliGroup, setGuruWaliGroup] = useState('');
 
   // Filter Rekap Laporan PDF
   const [reportType, setReportType] = useState('mapel'); 
@@ -117,41 +119,41 @@ function App() {
     }
   }, [isDarkMode]);
 
-  // LOGIKA MAPEL KETAT
-  useEffect(() => {
-    if (selectedClass === '7') setSelectedSubject('Matematika');
-    else if (selectedClass === '9A' || selectedClass === '9B') setSelectedSubject('Koding');
-    else if (selectedClass === '8A' || selectedClass === '8B') {
-      if (selectedSubject !== 'Matematika' && selectedSubject !== 'Koding') setSelectedSubject('Matematika');
-    }
-  }, [selectedClass, selectedSubject]);
-
-  useEffect(() => {
-    if (reportClass === '7') setReportSubject('Matematika');
-    else if (reportClass === '9A' || reportClass === '9B') setReportSubject('Koding');
-    else if (reportClass === '8A' || reportClass === '8B') {
-      if (reportSubject !== 'Matematika' && reportSubject !== 'Koding') setReportSubject('Matematika');
-    }
-  }, [reportClass, reportSubject]);
+  // Removed hardcoded LOGIKA MAPEL KETAT
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchProfileService(session.user.id, setProfile);
+      if (session) fetchProfileService(session.user, setProfile);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) fetchProfileService(session.user.id, setProfile);
+      if (session) fetchProfileService(session.user, setProfile);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'edit') fetchJournalsHistoryService({ isDemo, setFetchingHistory, setJournalsHistory });
-    if (activeTab === 'siswa') fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll });
-  }, [activeTab, isDemo]);
+    if (profile?.full_name) {
+      const wClass = getWaliClass(profile.full_name);
+      if (wClass) {
+        setWaliClass(wClass);
+      } else {
+        setWaliClass('');
+      }
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (activeTab === 'edit' && profile?.full_name) {
+      fetchJournalsHistoryService({ isDemo, setFetchingHistory, setJournalsHistory, profile });
+    }
+    if (activeTab === 'siswa') {
+      fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll });
+    }
+  }, [activeTab, isDemo, profile]);
 
   const initAttendance = (studentList) => {
     const att = {};
@@ -161,10 +163,10 @@ function App() {
 
   useEffect(() => {
     fetchStudentsByModeService({ 
-      isDemo, jurnalMode, selectedClass, waliClass, 
+      isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup: profile?.full_name,
       setFetchingStudents, setStudents, initAttendance 
     });
-  }, [jurnalMode, selectedClass, waliClass, isDemo]);
+  }, [jurnalMode, selectedClass, waliClass, profile, isDemo]);
 
   const handlePhotoSelect = (e) => {
     const files = Array.from(e.target.files);
@@ -276,6 +278,7 @@ function App() {
             selectedSubject={selectedSubject} setSelectedSubject={setSelectedSubject}
             waliClass={waliClass} setWaliClass={setWaliClass}
             waliNotes={waliNotes} setWaliNotes={setWaliNotes}
+            guruWaliGroup={profile?.full_name || ''} setGuruWaliGroup={() => {}}
             material={material} setMaterial={setMaterial}
             photoFiles={photoFiles} photoPreviews={photoPreviews}
             handlePhotoSelect={handlePhotoSelect} handleRemovePhoto={handleRemovePhoto}
@@ -283,10 +286,11 @@ function App() {
             attendance={attendance} setAttendance={setAttendance}
             grades={grades} setGrades={setGrades}
             loading={loading} setActiveTab={setActiveTab}
+            profile={profile}
             handleSubmitJurnal={() => handleSubmitJurnalService({
               isDemo, jurnalMode, material, setLoading, photoFiles, journalDate, selectedClass,
-              selectedSubject, waliClass, waliNotes, students, attendance, grades,
-              setMaterial, setWaliNotes, setPhotos, setPhotoPreviews, setGrades, initAttendance
+              selectedSubject, waliClass, waliNotes, guruWaliGroup, students, attendance, grades,
+              setMaterial, setWaliNotes, setGuruWaliGroup, setPhotos, setPhotoPreviews, setGrades, initAttendance, profile
             })}
           />
         )}
@@ -294,22 +298,24 @@ function App() {
         {activeTab === 'edit' && (
           <TabReview 
             journalsHistory={journalsHistory} fetchingHistory={fetchingHistory}
-            fetchJournalsHistory={() => fetchJournalsHistoryService({ isDemo, setFetchingHistory, setJournalsHistory })}
+            fetchJournalsHistory={() => fetchJournalsHistoryService({ isDemo, setFetchingHistory, setJournalsHistory, profile })}
             reviewSearchQuery={reviewSearchQuery} setReviewSearchQuery={setReviewSearchQuery}
             reviewSubjectFilter={reviewSubjectFilter} setReviewSubjectFilter={setReviewSubjectFilter}
             reviewClassFilter={reviewClassFilter} setReviewClassFilter={setReviewClassFilter}
             reviewSortOrder={reviewSortOrder} setReviewSortOrder={setReviewSortOrder}
             editingJournal={editingJournal} setEditingJournal={setEditingJournal}
+            profile={profile}
             handleStartEditJournal={(journal) => handleStartEditJournalService({ journal, editingJournal, setEditingJournal, setFetchingHistory, setEditStudentsList })}
-            handleDeleteJournal={(journalId) => handleDeleteJournalService({ journalId, fetchJournalsHistory: () => fetchJournalsHistoryService({ isDemo, setFetchingHistory, setJournalsHistory }) })}
+            handleDeleteJournal={(journal) => handleDeleteJournalService({ journal, fetchJournalsHistory: () => fetchJournalsHistoryService({ isDemo, setFetchingHistory, setJournalsHistory, profile }) })}
             editStudentsList={editStudentsList} savingEdit={savingEdit}
-            handleSaveFullJournal={() => handleSaveFullJournalService({ editingJournal, setSavingEdit, editStudentsList, setEditingJournal, fetchJournalsHistory: () => fetchJournalsHistoryService({ isDemo, setFetchingHistory, setJournalsHistory }) })}
+            handleSaveFullJournal={() => handleSaveFullJournalService({ editingJournal, setSavingEdit, editStudentsList, setEditingJournal, fetchJournalsHistory: () => fetchJournalsHistoryService({ isDemo, setFetchingHistory, setJournalsHistory, profile }) })}
             setSelectedImageModal={setSelectedImageModal}
           />
         )}
 
         {activeTab === 'siswa' && (
           <TabStudents 
+            profile={profile}
             allStudents={allStudents}
             searchStudentQuery={searchStudentQuery} setSearchStudentQuery={setSearchStudentQuery}
             attendanceFilter={attendanceFilter} setAttendanceFilter={setAttendanceFilter}
@@ -319,7 +325,7 @@ function App() {
             handleAddStudent={(e) => handleAddStudentService({ e, newStudent, setNewStudent, setIsAddingStudent, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
             editingStudent={editingStudent} setEditingStudent={setEditingStudent}
             handleUpdateStudent={(id) => handleUpdateStudentService({ id, editingStudent, setEditingStudent, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
-            handleToggleKelompok5={(student) => handleToggleKelompok5Service({ student, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
+            handleToggleKelompok5={(student) => handleToggleKelompok5Service({ student, profile, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup: profile?.full_name, setFetchingStudents, setStudents, initAttendance }) })}
             handleShowAbsenceDetails={(student) => handleShowAbsenceDetailsService({ student, setFetchingStudents, setStudentAbsenceDetails })}
             handleExportIndividualPDF={handleExportIndividualPDF}
             handleDeleteStudent={(id, name) => handleDeleteStudentService({ id, name, fetchAllStudents: () => fetchAllStudentsService({ isDemo, setAllStudents, setAttendanceRecordsAll }), fetchStudentsByMode: () => fetchStudentsByModeService({ isDemo, jurnalMode, selectedClass, waliClass, setFetchingStudents, setStudents, initAttendance }) })}
@@ -328,6 +334,7 @@ function App() {
 
         {activeTab === 'profile' && (
           <TabExport 
+            waliClass={waliClass}
             reportType={reportType} setReportType={setReportType}
             reportPeriod={reportPeriod} setReportPeriod={setReportPeriod}
             reportClass={reportClass} setReportClass={setReportClass}

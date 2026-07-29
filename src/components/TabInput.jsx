@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, UserCheck as WaliIcon, Users, RefreshCw, Camera, Image as ImageIcon, X, Check } from 'lucide-react';
+import { getTeacherData } from '../utils/constants';
 
 const TabInput = ({
   jurnalMode, setJurnalMode, journalDate, setStartDateJournal,
@@ -7,9 +8,28 @@ const TabInput = ({
   waliClass, waliNotes, setWaliNotes, material, setMaterial,
   photoFiles, photoPreviews, handlePhotoSelect, handleRemovePhoto,
   students, fetchingStudents, attendance, setAttendance, grades, setGrades,
-  loading, handleSubmitJurnal, setActiveTab
+  loading, handleSubmitJurnal, setActiveTab, profile,
+  guruWaliGroup, setGuruWaliGroup
 }) => {
   const [isCompactMode, setIsCompactMode] = useState(false);
+
+  const teacherData = getTeacherData(profile?.full_name) || {
+    "MATEMATIKA": ["7", "8A", "8B"],
+    "KODING & KA": ["8A", "8B", "9A", "9B"]
+  };
+  const availableClasses = [...new Set(Object.values(teacherData).flat())].sort();
+  const availableSubjects = Object.keys(teacherData).filter(subj => teacherData[subj].includes(selectedClass));
+
+  useEffect(() => {
+    if (jurnalMode === 'mapel') {
+      if (!availableClasses.includes(selectedClass) && availableClasses.length > 0) {
+        setSelectedClass(availableClasses[0]);
+      } else if (!availableSubjects.includes(selectedSubject) && availableSubjects.length > 0) {
+        setSelectedSubject(availableSubjects[0]);
+      }
+    }
+  }, [profile?.full_name, selectedClass, selectedSubject, jurnalMode, availableClasses.join(','), availableSubjects.join(',')]);
+
 
   return (
     <div className="space-y-2">
@@ -24,14 +44,16 @@ const TabInput = ({
           <span>Mapel</span>
         </button>
 
-        <button 
-          onClick={() => setJurnalMode('wali_kelas')}
-          className={`flex-1 py-1.5 rounded-lg flex items-center justify-center space-x-1 transition-all ${
-            jurnalMode === 'wali_kelas' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-          }`}
-        >
-          <span>Wali Kelas</span>
-        </button>
+        {waliClass && (
+          <button 
+            onClick={() => setJurnalMode('wali_kelas')}
+            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center space-x-1 transition-all ${
+              jurnalMode === 'wali_kelas' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            <span>Wali Kelas</span>
+          </button>
+        )}
 
         <button 
           onClick={() => setJurnalMode('guru_wali')}
@@ -63,11 +85,9 @@ const TabInput = ({
                 value={selectedClass} 
                 onChange={e => setSelectedClass(e.target.value)}
               >
-                <option value="7">7</option>
-                <option value="8A">8A</option>
-                <option value="8B">8B</option>
-                <option value="9A">9A</option>
-                <option value="9B">9B</option>
+                {availableClasses.map(cls => (
+                  <option key={cls} value={cls}>{cls}</option>
+                ))}
               </select>
             </div>
             <div className="flex items-center gap-2 whitespace-nowrap">
@@ -77,24 +97,39 @@ const TabInput = ({
                 value={selectedSubject} 
                 onChange={e => setSelectedSubject(e.target.value)}
               >
-                {(selectedClass === '7' || selectedClass === '8A' || selectedClass === '8B') && (
-                  <option value="Matematika">Matematika</option>
-                )}
-                {(selectedClass === '8A' || selectedClass === '8B' || selectedClass === '9A' || selectedClass === '9B') && (
-                  <option value="Koding">Koding</option>
-                )}
+                {availableSubjects.map(subj => (
+                  <option key={subj} value={subj}>{subj}</option>
+                ))}
               </select>
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400">Tanggal</label>
-            <input 
-              type="date" 
-              className="py-1.5 px-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-lg text-[10.5pt] font-semibold text-slate-700 dark:text-slate-200"
-              value={journalDate} 
-              onChange={e => setStartDateJournal(e.target.value)}
-            />
+          <div className="flex items-center gap-4 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400">Tanggal</label>
+              <input 
+                type="date" 
+                className="py-1.5 px-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-lg text-[10.5pt] font-semibold text-slate-700 dark:text-slate-200"
+                value={journalDate} 
+                onChange={e => setStartDateJournal(e.target.value)}
+              />
+            </div>
+            {jurnalMode === 'wali_kelas' && (
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400">Kelas</label>
+                <div className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10.5pt] font-bold text-slate-700 dark:text-slate-200">
+                  {waliClass || "Bukan Wali Kelas"}
+                </div>
+              </div>
+            )}
+            {jurnalMode === 'guru_wali' && (
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400">Guru Wali</label>
+                <div className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10.5pt] font-bold text-slate-700 dark:text-slate-200">
+                  {profile?.full_name}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
