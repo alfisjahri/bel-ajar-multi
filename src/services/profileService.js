@@ -9,10 +9,11 @@ export const fetchProfileService = async (user, setProfile) => {
       if (data.full_name) localStorage.setItem('teacher_name', data.full_name);
       if (data.nip) localStorage.setItem('teacher_nip', data.nip);
       if (data.signature_url) localStorage.setItem('teacher_sig', data.signature_url);
+      if (data.guru_wali_group) localStorage.setItem('guru_wali_group', data.guru_wali_group);
     } else {
       // Auto-detect nama dari email (sebelum tanda @)
       const emailName = user.email ? user.email.split('@')[0].toUpperCase() : 'GURU BARU';
-      const autoProfile = { full_name: emailName, nip: '', signature_url: '' };
+      const autoProfile = { full_name: emailName, nip: '', signature_url: '', guru_wali_group: '' };
       setProfile(autoProfile);
       localStorage.setItem('teacher_name', emailName);
       localStorage.removeItem('teacher_nip');
@@ -33,12 +34,15 @@ export const handleSaveProfileService = async ({ session, profile, setLoading })
     full_name: profile.full_name,
     nip: profile.nip,
     signature_url: profile.signature_url,
+    guru_wali_group: profile.guru_wali_group || null,
     updated_at: new Date()
   };
 
   localStorage.setItem('teacher_name', profile.full_name);
   localStorage.setItem('teacher_nip', profile.nip);
   if (profile.signature_url) localStorage.setItem('teacher_sig', profile.signature_url);
+  if (profile.guru_wali_group) localStorage.setItem('guru_wali_group', profile.guru_wali_group);
+  else localStorage.removeItem('guru_wali_group');
 
   const { error } = await supabase.from('profiles').upsert(updates);
   

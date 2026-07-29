@@ -146,6 +146,9 @@ function App() {
         setWaliClass('');
       }
     }
+    if (profile?.guru_wali_group !== undefined && profile.guru_wali_group !== guruWaliGroup) {
+      setGuruWaliGroup(profile.guru_wali_group || '');
+    }
   }, [profile]);
 
   useEffect(() => {
@@ -364,7 +367,12 @@ function App() {
             waliNotes={waliNotes} setWaliNotes={setWaliNotes}
             guruWaliGroup={guruWaliGroup} setGuruWaliGroup={(val) => {
               setGuruWaliGroup(val);
+              setProfile(prev => ({ ...prev, guru_wali_group: val }));
               localStorage.setItem('guru_wali_group', val);
+              if (session) {
+                // Auto-save silently to profile
+                supabase.from('profiles').update({ guru_wali_group: val }).eq('id', session.user.id).then();
+              }
             }}
             material={material} setMaterial={setMaterial}
             photoFiles={photoFiles} photoPreviews={photoPreviews}

@@ -58,8 +58,11 @@ export const handleLogoutService = (setIsDemo) => {
       localStorage.removeItem('teacher_name');
       localStorage.removeItem('teacher_nip');
       localStorage.removeItem('teacher_sig');
+      localStorage.removeItem('guru_wali_group');
       setIsDemo(false);
-      Toast.fire({ icon: 'success', title: 'Berhasil Keluar' });
+      Toast.fire({ icon: 'success', title: 'Berhasil Keluar' }).then(() => {
+        window.location.reload();
+      });
     }
   });
 };
