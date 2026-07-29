@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { getWitaDateString } from './services/utils';
 import { Swal } from './services/utils';
+import { getTeacherData } from './utils/constants';
 
 // Import Services
 import { handleLoginService, handleLogoutService } from './services/authService';
@@ -211,18 +212,51 @@ function App() {
       if (data) studentAtt = data;
     }
 
-    const uniqueSubjects = [...new Set(studentAtt.map(a => a.journals.subject))];
-    const mapelSubjects = uniqueSubjects.filter(s => s !== 'Pembinaan Wali Kelas' && s !== 'Presensi Guru Wali');
+    const teacherData = getTeacherData(profile?.full_name);
+    let mapelSubjects = [];
+    if (teacherData) {
+      // Only include mapels that this teacher teaches to this specific student's class
+      for (const [subject, classes] of Object.entries(teacherData)) {
+        if (classes.includes(student.class_name)) {
+          mapelSubjects.push(subject);
+        }
+      }
+    } else {
+      // Fallback: if no predefined data, extract from what we know they taught
+      const uniqueSubjects = [...new Set(studentAtt.map(a => a.journals.subject))];
+      mapelSubjects = uniqueSubjects.filter(s => s !== 'Pembinaan Wali Kelas' && s !== 'Presensi Guru Wali');
+    }
 
-    let htmlOptions = `<option value="ALL_MAPEL">Semua Mata Pelajaran</option>`;
-    mapelSubjects.forEach(s => {
-      htmlOptions += `<option value="${s}">Mapel: ${s}</option>`;
-    });
-    if (uniqueSubjects.includes('Pembinaan Wali Kelas')) {
+    let htmlOptions = '';
+    
+    // Only show "Semua Mata Pelajaran" and Mapels if the teacher actually teaches this class any mapels
+    // or if we are relying on fallback data and they have mapel attendance.
+    if (mapelSubjects.length > 0) {
+      htmlOptions += `<option value="ALL_MAPEL">Semua Mata Pelajaran</option>`;
+      mapelSubjects.forEach(s => {
+        htmlOptions += `<option value="${s}">Mapel: ${s}</option>`;
+      });
+    }
+
+    // Only show "Wali Kelas" if this teacher is the Wali Kelas for this student's class
+    const waliClass = getWaliClass(profile?.full_name);
+    if (waliClass === student.class_name) {
       htmlOptions += `<option value="Pembinaan Wali Kelas">Wali Kelas</option>`;
     }
-    if (uniqueSubjects.includes('Presensi Guru Wali')) {
+
+    // Only show "Guru Wali" if this student is in this teacher's Guru Wali group
+    if (guruWaliGroup && student.group_name === guruWaliGroup) {
       htmlOptions += `<option value="Presensi Guru Wali">Guru Wali</option>`;
+    }
+
+    if (!htmlOptions) {
+      await Swal.fire({
+        title: 'Akses Ditolak',
+        text: 'Siswa ini tidak diajar/dibina oleh Anda, sehingga opsi cetak presensi tidak tersedia.',
+        icon: 'error',
+        confirmButtonText: 'Tutup'
+      });
+      return;
     }
 
     const { value: selectedPrintSubject } = await Swal.fire({
