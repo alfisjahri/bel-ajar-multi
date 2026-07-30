@@ -303,7 +303,7 @@ function App() {
       if (a.status === 'Hadir') summary.H++;
       else if (a.status === 'Sakit') summary.S++;
       else if (a.status === 'Izin') summary.I++;
-      else if (a.status === 'Alfa') summary.A++;
+      else if (a.status === 'Alfa' || a.status === 'Alpa') summary.A++;
     });
 
     const rows = filteredAtt.map((a, idx) => ({
@@ -312,7 +312,7 @@ function App() {
       h: a.status === 'Hadir' ? 1 : 0,
       s: a.status === 'Sakit' ? 1 : 0,
       i: a.status === 'Izin' ? 1 : 0,
-      a: a.status === 'Alfa' ? 1 : 0,
+      a: (a.status === 'Alfa' || a.status === 'Alpa') ? 1 : 0,
       grade: (reportType === 'mapel' && selectedPrintSubject === 'ALL_MAPEL') ? `${a.journals.subject} (${a.notes || '-'})` : (a.notes || '-')
     }));
 

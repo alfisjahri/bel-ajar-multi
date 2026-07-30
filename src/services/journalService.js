@@ -213,7 +213,11 @@ export const handleSubmitJurnalService = async ({
       journal_id: journal.id, student_id: s.id, status: attendance[s.id] || 'Hadir', date: customEntryDate
     }));
 
-    await supabase.from('attendance').insert(attRecords);
+    const { error: attInsertError } = await supabase.from('attendance').insert(attRecords);
+    if (attInsertError) {
+      alert("Gagal menyimpan presensi: " + JSON.stringify(attInsertError));
+      console.error("Attendance Insert Error:", attInsertError);
+    }
 
     if (jurnalMode === 'mapel') {
       const gradeRecords = students.filter(s => grades[s.id]).map(s => ({
@@ -291,8 +295,15 @@ export const handleTriggerExportPreviewService = async ({
     fromDate.setHours(0, 0, 0, 0);
     toDate.setHours(23, 59, 59, 999);
   } else if (reportPeriod === 'mingguan') {
-    fromDate.setDate(fromDate.getDate() - 7);
+    // Get Monday of the current week
+    const day = fromDate.getDay();
+    const diffToMonday = fromDate.getDate() - day + (day === 0 ? -6 : 1);
+    fromDate.setDate(diffToMonday);
     fromDate.setHours(0, 0, 0, 0);
+    
+    // Get Saturday of the current week
+    toDate = new Date(fromDate);
+    toDate.setDate(fromDate.getDate() + 5);
     toDate.setHours(23, 59, 59, 999);
   } else if (reportPeriod === 'bulanan') {
     fromDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), 1, 0, 0, 0, 0);
@@ -324,27 +335,34 @@ export const handleTriggerExportPreviewService = async ({
     if (matchedJournals && matchedJournals.length > 0) {
       const journalIds = matchedJournals.map(j => j.id);
 
-      const { data: attData } = await supabase
+      const { data: attData, error: attError } = await supabase
         .from('attendance')
-        .select('student_id, status')
+        .select('journal_id, student_id, status')
         .in('journal_id', journalIds);
+      
+      // Initialize maps
+      targetStudents.forEach(s => {
+        attSummaryMap[s.id] = { H: 0, S: 0, I: 0, A: 0 };
+        gradeSummaryMap[s.id] = [];
+      });
+
+      // Count attendance per journal per student
+      journalIds.forEach(jid => {
+        targetStudents.forEach(s => {
+          const record = attData?.find(a => a.journal_id === jid && a.student_id === s.id);
+          const st = record ? (record.status || '').trim().toLowerCase() : 'hadir';
+          
+          if (st === 'hadir') attSummaryMap[s.id].H++;
+          else if (st === 'sakit') attSummaryMap[s.id].S++;
+          else if (st === 'izin') attSummaryMap[s.id].I++;
+          else if (st === 'alfa' || st === 'alpa') attSummaryMap[s.id].A++;
+        });
+      });
 
       const { data: gradeData } = await supabase
         .from('grades')
         .select('student_id, score')
         .in('journal_id', journalIds);
-
-      if (attData) {
-        attData.forEach(a => {
-          if (!attSummaryMap[a.student_id]) {
-            attSummaryMap[a.student_id] = { H: 0, S: 0, I: 0, A: 0 };
-          }
-          if (a.status === 'Hadir') attSummaryMap[a.student_id].H++;
-          else if (a.status === 'Sakit') attSummaryMap[a.student_id].S++;
-          else if (a.status === 'Izin') attSummaryMap[a.student_id].I++;
-          else if (a.status === 'Alfa') attSummaryMap[a.student_id].A++;
-        });
-      }
 
       if (gradeData) {
         gradeData.forEach(g => {
@@ -376,17 +394,40 @@ export const handleTriggerExportPreviewService = async ({
     };
   });
 
-  let reportTitle = `REKAPITULASI PRESENSI & NILAI (${reportPeriod.toUpperCase()})`;
+  const formatDateRange = () => {
+    if (reportPeriod === 'mingguan') {
+      return `\n${new Date(fromDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${new Date(toDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    } else if (reportPeriod === 'bulanan') {
+      return `\n${new Date(fromDate).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase()}`;
+    } else if (reportPeriod === 'semester') {
+      return '';
+    } else if (reportPeriod === 'harian') {
+      return ''; // Already has date below or not needed in title
+    } else {
+      return `\n${new Date(fromDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - ${new Date(toDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+  };
+
+  let periodString = '';
+  if (reportPeriod === 'harian') {
+    periodString = 'HARIAN';
+  } else if (reportPeriod === 'bulanan') {
+    periodString = `BULAN ${formatDateRange().trim()}`;
+  } else {
+    periodString = `${reportPeriod.toUpperCase()} ${formatDateRange()}`.trim();
+  }
+
+  let reportTitle = `REKAPITULASI PRESENSI & NILAI (${periodString})`;
   let reportSubtitle = `SMPN 1 Damai  |  Kelas: ${targetClassName}  |  Mata Pelajaran: ${targetSubjectName}`;
   
   let subjectRoleText = `Guru Mata Pelajaran ${targetSubjectName}`;
 
   if (reportType === 'wali_kelas') {
-    reportTitle = `REKAP PRESENSI & PEMBINAAN WALI KELAS ${targetClassName} (${reportPeriod.toUpperCase()})`;
+    reportTitle = `REKAP PRESENSI & PEMBINAAN WALI KELAS ${targetClassName} (${periodString})`;
     reportSubtitle = `SMPN 1 Damai  |  Wali Kelas: ${targetClassName}`;
     subjectRoleText = `Wali Kelas ${targetClassName}`;
   } else if (reportType === 'guru_wali') {
-    reportTitle = `REKAP PRESENSI BINAAN GURU WALI (${reportPeriod.toUpperCase()})`;
+    reportTitle = `REKAP PRESENSI BINAAN GURU WALI (${periodString})`;
     reportSubtitle = `SMPN 1 Damai  |  Kelompok Binaan: ${targetClassName}`;
     subjectRoleText = `Guru Wali ${targetClassName}`;
   }

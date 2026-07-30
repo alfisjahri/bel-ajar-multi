@@ -184,7 +184,7 @@ const TabReview = ({
                                   { code: 'Hadir', label: 'H', activeBg: 'bg-emerald-600 text-white' },
                                   { code: 'Sakit', label: 'S', activeBg: 'bg-amber-500 text-white' },
                                   { code: 'Izin', label: 'I', activeBg: 'bg-blue-600 text-white' },
-                                  { code: 'Alfa', label: 'A', activeBg: 'bg-red-600 text-white' },
+                                  { code: 'Alpa', label: 'A', activeBg: 'bg-red-600 text-white' },
                                 ].map(item => {
                                   const isSelected = (editingJournal.attendance[student.id] || 'Hadir') === item.code;
                                   return (

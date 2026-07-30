@@ -79,7 +79,7 @@ const TabStudents = ({
             { key: 'ALL', label: 'Semua' },
             { key: 'Sakit', label: 'S' },
             { key: 'Izin', label: 'I' },
-            { key: 'Alfa', label: 'A' }
+            { key: 'Alpa', label: 'A' }
           ].map(chip => (
             <button 
               key={chip.key}

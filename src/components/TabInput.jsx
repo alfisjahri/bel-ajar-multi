@@ -197,7 +197,7 @@ const TabInput = ({
                       { code: 'Hadir', label: 'H', activeBg: 'bg-emerald-600 text-white shadow' },
                       { code: 'Sakit', label: 'S', activeBg: 'bg-amber-500 text-white shadow' },
                       { code: 'Izin', label: 'I', activeBg: 'bg-blue-600 text-white shadow' },
-                      { code: 'Alfa', label: 'A', activeBg: 'bg-red-600 text-white shadow' },
+                      { code: 'Alpa', label: 'A', activeBg: 'bg-red-600 text-white shadow' },
                     ].map(item => {
                       const isSelected = (attendance[student.id] || 'Hadir') === item.code;
 

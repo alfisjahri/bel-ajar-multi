@@ -121,7 +121,7 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
         <div className="border-t-[2.5px] border-black border-b-[0.8px] border-b-black h-[2px] my-2"></div>
 
         <div className="text-center my-3">
-          <h4 className="font-bold text-[10.5pt] uppercase underline">{previewData.title}</h4>
+          <h4 className="font-bold text-[10.5pt] uppercase underline whitespace-pre-wrap">{previewData.title}</h4>
           {previewData.subtitle && <p className="text-[9pt] text-slate-700 font-sans mt-0.5">{previewData.subtitle}</p>}
         </div>
 
@@ -180,6 +180,15 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
           <div className="w-56 text-left text-[9pt]">
             <p>Damai, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             <p className="font-normal mb-1">{previewData.subjectRole},</p>
+            <p className="text-[8pt] text-slate-500 italic mb-1">
+              Periode: {previewData.reportPeriod === 'harian' 
+                ? new Date(previewData.startDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                : previewData.reportPeriod === 'mingguan' ? `MINGGUAN (${new Date(previewData.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${new Date(previewData.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })})`
+                : previewData.reportPeriod === 'bulanan' ? `BULANAN (${new Date(previewData.startDate).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase()})`
+                : previewData.reportPeriod === 'semester' ? 'SEMESTER'
+                : `${new Date(previewData.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} - ${new Date(previewData.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
+              }
+            </p>
             
             <div className="h-14 my-1 flex items-center justify-start">
               {previewData.signatureUrl ? (
