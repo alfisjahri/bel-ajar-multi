@@ -192,9 +192,9 @@ export const handleSubmitJurnalService = async ({
     saveSubject = 'Pembinaan Wali Kelas';
     saveMaterial = waliNotes.trim() || `Presensi Harian Wali Kelas ${waliClass}`;
   } else if (jurnalMode === 'guru_wali') {
-    saveClassName = guruWaliGroup || 'Kelompok 5';
+    saveClassName = profile?.full_name || 'NUR ALFI SYAHRI, S.P.';
     saveSubject = 'Presensi Guru Wali';
-    saveMaterial = waliNotes.trim() || `Presensi Harian Binaan Guru Wali (${guruWaliGroup || 'Kelompok 5'})`;
+    saveMaterial = waliNotes.trim() || `Presensi Harian Binaan Guru Wali (${profile?.full_name || 'NUR ALFI SYAHRI, S.P.'})`;
   }
 
   const { data: journal, error } = await supabase.from('journals').insert([
@@ -257,7 +257,7 @@ export const handleTriggerExportPreviewService = async ({
     targetClassName = waliClass || '8A';
     targetSubjectName = 'Pembinaan Wali Kelas';
   } else if (reportType === 'guru_wali') {
-    targetClassName = guruWaliGroup || 'Kelompok 5';
+    targetClassName = profile?.full_name || 'NUR ALFI SYAHRI, S.P.';
     targetSubjectName = 'Presensi Guru Wali';
   }
 
@@ -303,9 +303,9 @@ export const handleTriggerExportPreviewService = async ({
     fromDate = new Date(fromDate.getFullYear(), semesterStartMonth, 1, 0, 0, 0, 0);
     toDate.setHours(23, 59, 59, 999);
   } else if (reportPeriod === 'custom') {
-    fromDate = new Date(startDate);
+    fromDate = startDate ? new Date(startDate) : new Date(2020, 0, 1);
     fromDate.setHours(0, 0, 0, 0);
-    toDate = new Date(endDate);
+    toDate = endDate ? new Date(endDate) : new Date();
     toDate.setHours(23, 59, 59, 999);
   }
 
