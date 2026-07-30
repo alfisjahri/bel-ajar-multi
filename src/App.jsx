@@ -191,7 +191,7 @@ function App() {
     setPhotoPreviews(updatedPreviews);
   };
 
-  const handleOpenPrintPreview = (title, subtitle, subjectRole, rows, reportType) => {
+  const handleOpenPrintPreview = (title, subtitle, subjectRole, rows, reportType, reportPeriod, startDate, endDate) => {
     setPreviewData({
       title,
       subtitle,
@@ -201,20 +201,42 @@ function App() {
       teacherName: profile.full_name || 'NUR ALFI SYAHRI, S.P.',
       teacherNip: profile.nip || '-------------------',
       signatureUrl: profile.signature_url,
-      reportType: reportType
+      reportType: reportType,
+      reportPeriod: reportPeriod,
+      startDate: startDate,
+      endDate: endDate
     });
     setShowPreviewModal(true);
   };
 
   const handleExportIndividualPDF = async (student) => {
     let studentAtt = [];
+    let studentGrades = [];
     if (!isDemo) {
       const { data } = await supabase
         .from('attendance')
-        .select('status, date, journals!inner(subject, material)')
+        .select('status, date, journal_id, journals!inner(subject, material)')
         .eq('student_id', student.id)
         .order('date', { ascending: false });
       if (data) studentAtt = data;
+
+      const { data: gradeData } = await supabase
+        .from('grades')
+        .select('journal_id, score')
+        .eq('student_id', student.id);
+      if (gradeData) studentGrades = gradeData;
+    }
+
+    const gradeMap = {};
+    studentGrades.forEach(g => {
+      gradeMap[g.journal_id] = g.score;
+    });
+
+    if (studentAtt.length > 0) {
+      studentAtt = studentAtt.map(a => ({
+        ...a,
+        score: gradeMap[a.journal_id]
+      }));
     }
 
     const teacherData = getTeacherData(profile?.full_name);
@@ -306,15 +328,25 @@ function App() {
       else if (a.status === 'Alfa' || a.status === 'Alpa') summary.A++;
     });
 
-    const rows = filteredAtt.map((a, idx) => ({
-      no: idx + 1,
-      name: new Date(a.date).toLocaleDateString('id-ID'),
-      h: a.status === 'Hadir' ? 1 : 0,
-      s: a.status === 'Sakit' ? 1 : 0,
-      i: a.status === 'Izin' ? 1 : 0,
-      a: (a.status === 'Alfa' || a.status === 'Alpa') ? 1 : 0,
-      grade: (reportType === 'mapel' && selectedPrintSubject === 'ALL_MAPEL') ? `${a.journals.subject} (${a.journals?.material || '-'})` : (a.journals?.material || '-')
-    }));
+    const rows = filteredAtt.map((a, idx) => {
+      const isHadir = a.status === 'Hadir' || a.status === 'H';
+      const materialText = a.journals?.material || '-';
+      let scoreDisplay = (a.score !== undefined && a.score !== null) ? a.score : '-';
+      if (scoreDisplay !== '-' && !Number.isInteger(scoreDisplay)) {
+        scoreDisplay = scoreDisplay.toFixed(2);
+      }
+      const gradeContent = isHadir ? scoreDisplay : materialText;
+
+      return {
+        no: idx + 1,
+        name: new Date(a.date).toLocaleDateString('id-ID'),
+        h: a.status === 'Hadir' ? 1 : 0,
+        s: a.status === 'Sakit' ? 1 : 0,
+        i: a.status === 'Izin' ? 1 : 0,
+        a: (a.status === 'Alfa' || a.status === 'Alpa') ? 1 : 0,
+        grade: (reportType === 'mapel' && selectedPrintSubject === 'ALL_MAPEL') ? `${a.journals.subject} (${gradeContent})` : gradeContent
+      };
+    });
 
     setPreviewData({
       title: `REKAP PRESENSI INDIVIDUAL SISWA`,

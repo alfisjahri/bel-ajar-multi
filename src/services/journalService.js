@@ -437,7 +437,10 @@ export const handleTriggerExportPreviewService = async ({
     reportSubtitle,
     subjectRoleText,
     rows,
-    reportType
+    reportType,
+    reportPeriod,
+    fromDate,
+    toDate
   );
   setLoading(false);
 };
