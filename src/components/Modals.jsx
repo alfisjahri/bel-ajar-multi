@@ -181,7 +181,9 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
             <p>Damai, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             <p className="font-normal mb-1">{previewData.subjectRole},</p>
             <p className="text-[8pt] text-slate-500 italic mb-1">
-              Periode: {previewData.reportPeriod === 'harian' 
+              Periode: {previewData.isIndividual 
+                ? 'Seluruh Riwayat'
+                : previewData.reportPeriod === 'harian' 
                 ? new Date(previewData.startDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
                 : previewData.reportPeriod === 'mingguan' ? `MINGGUAN (${new Date(previewData.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${new Date(previewData.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })})`
                 : previewData.reportPeriod === 'bulanan' ? `BULANAN (${new Date(previewData.startDate).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase()})`

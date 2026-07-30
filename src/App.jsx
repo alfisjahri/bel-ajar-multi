@@ -211,7 +211,7 @@ function App() {
     if (!isDemo) {
       const { data } = await supabase
         .from('attendance')
-        .select('status, date, notes, journals!inner(subject)')
+        .select('status, date, journals!inner(subject, material)')
         .eq('student_id', student.id)
         .order('date', { ascending: false });
       if (data) studentAtt = data;
@@ -313,7 +313,7 @@ function App() {
       s: a.status === 'Sakit' ? 1 : 0,
       i: a.status === 'Izin' ? 1 : 0,
       a: (a.status === 'Alfa' || a.status === 'Alpa') ? 1 : 0,
-      grade: (reportType === 'mapel' && selectedPrintSubject === 'ALL_MAPEL') ? `${a.journals.subject} (${a.notes || '-'})` : (a.notes || '-')
+      grade: (reportType === 'mapel' && selectedPrintSubject === 'ALL_MAPEL') ? `${a.journals.subject} (${a.journals?.material || '-'})` : (a.journals?.material || '-')
     }));
 
     setPreviewData({
