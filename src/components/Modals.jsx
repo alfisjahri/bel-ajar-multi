@@ -129,10 +129,14 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
           <thead>
             <tr className="bg-slate-200 text-slate-900 font-bold text-center">
               <th rowSpan="2" className="border border-slate-900 p-1 w-8">NO</th>
-              <th rowSpan="2" className="border border-slate-900 p-1 text-left">{previewData.isIndividual ? 'TANGGAL' : 'NAMA LENGKAP SISWA'}</th>
+              <th rowSpan="2" className={`border border-slate-900 p-1 ${previewData.isIndividual ? 'w-32 text-center' : 'text-left'}`}>
+                {previewData.isIndividual ? 'TANGGAL' : 'NAMA LENGKAP SISWA'}
+              </th>
               <th colSpan="4" className="border border-slate-900 p-1">PRESENSI</th>
               {previewData.reportType !== 'wali_kelas' && previewData.reportType !== 'guru_wali' && (
-                <th rowSpan="2" className="border border-slate-900 p-1 w-16">{previewData.isIndividual ? 'CATATAN' : 'NILAI'}</th>
+                <th rowSpan="2" className={`border border-slate-900 p-1 ${previewData.isIndividual ? '' : 'w-16'}`}>
+                  {previewData.isIndividual ? 'CATATAN' : 'NILAI'}
+                </th>
               )}
             </tr>
             <tr className="bg-slate-300 text-slate-900 font-bold text-center text-[8pt]">
@@ -151,7 +155,7 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
               previewData.rows.map((row, idx) => (
                 <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-100' : 'bg-white'}>
                   <td className="border border-slate-800 p-1 text-center font-medium">{row.no}</td>
-                  <td className="border border-slate-800 p-1 font-bold uppercase">{row.name}</td>
+                  <td className={`border border-slate-800 p-1 font-bold uppercase ${previewData.isIndividual ? 'text-center' : ''}`}>{row.name}</td>
                   
                   <td className="border border-slate-800 p-1 text-center font-bold text-emerald-700 bg-emerald-50/30">
                     {row.h > 0 ? row.h : '-'}
