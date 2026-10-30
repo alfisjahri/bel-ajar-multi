@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { RefreshCw, Search, Filter, ArrowUpDown, Edit, Trash, Image as ImageIcon } from 'lucide-react';
 import { getTeacherData } from '../utils/constants';
+import ResolvedImage from './ResolvedImage';
 
 const TabReview = ({
   journalsHistory, fetchingHistory, fetchJournalsHistory, reviewSearchQuery,
@@ -268,12 +269,12 @@ const TabReview = ({
                         </p>
                         <div className="flex gap-2 overflow-x-auto pb-1">
                           {photoList.map((url, i) => (
-                            <img 
-                              key={i} 
-                              src={url} 
-                              alt="Dokumentasi Jurnal" 
-                              onClick={() => setSelectedImageModal(url)}
-                              className="w-20 h-20 object-cover rounded-xl border-2 border-white shadow-md cursor-pointer hover:opacity-80 active:scale-95 transition-all flex-shrink-0" 
+                            <ResolvedImage
+                              key={i}
+                              value={url}
+                              alt="Dokumentasi Jurnal"
+                              onClick={(src) => setSelectedImageModal(src)}
+                              className="w-20 h-20 object-cover rounded-xl border-2 border-white shadow-md cursor-pointer hover:opacity-80 active:scale-95 transition-all flex-shrink-0"
                             />
                           ))}
                         </div>

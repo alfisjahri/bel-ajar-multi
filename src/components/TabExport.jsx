@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Eye, Settings, ChevronUp, ChevronDown } from 'lucide-react';
 import { getTeacherData } from '../utils/constants';
+import ResolvedImage from './ResolvedImage';
 
 const TabExport = ({
   reportType, setReportType, reportPeriod, setReportPeriod, reportClass, setReportClass,
@@ -188,7 +189,7 @@ const TabExport = ({
               {profile.signature_url && (
                 <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
                   <p className="text-[10.5pt] font-bold text-slate-400 dark:text-slate-500 mb-1">Preview TTD Tersimpan:</p>
-                  <img src={profile.signature_url} alt="TTD Guru" className="h-16 mx-auto object-contain" />
+                  <ResolvedImage value={profile.signature_url} alt="TTD Guru" className="h-16 mx-auto object-contain" />
                 </div>
               )}
             </div>

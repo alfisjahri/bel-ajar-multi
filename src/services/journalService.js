@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { Toast, Swal, compressImageToBase64, uploadImageToCloudinary, deleteImageFromCloudinary } from './utils';
+import { Toast, Swal, compressImageToBase64, uploadImageToStorage, deleteImageByValue, newUuid } from './utils';
 
 export const fetchJournalsHistoryService = async ({ isDemo, setFetchingHistory, setJournalsHistory, profile }) => {
   if (isDemo || !profile?.full_name) return;
@@ -139,10 +139,10 @@ export const handleDeleteJournalService = ({ journal, fetchJournalsHistory }) =>
       const { error } = await supabase.from('journals').delete().eq('id', journal.id);
 
       if (!error) {
-        // Delete images from Cloudinary silently in background
+        // Delete images silently in background (Storage path atau URL Cloudinary lama)
         if (Array.isArray(photoList) && photoList.length > 0) {
-          photoList.forEach(url => {
-            if (url) deleteImageFromCloudinary(url);
+          photoList.forEach(value => {
+            if (value) deleteImageByValue(value);
           });
         }
         
@@ -167,17 +167,24 @@ export const handleSubmitJurnalService = async ({
   }
 
   setLoading(true);
-  let photoBase64List = [];
+  let photoPathList = [];
 
   if (photoFiles.length > 0) {
     try {
-      photoBase64List = await Promise.all(photoFiles.map(async (file) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Sesi login tidak ditemukan');
+      // Bulan entri jurnal (YYYY-MM) — diambil dari string tanggal, anti geser zona waktu.
+      const yearMonth = /^\d{4}-\d{2}/.test(journalDate)
+        ? journalDate.slice(0, 7)
+        : new Date().toISOString().slice(0, 7);
+      photoPathList = await Promise.all(photoFiles.map(async (file) => {
         const base64Img = await compressImageToBase64(file);
-        return await uploadImageToCloudinary(base64Img);
+        const path = `${user.id}/${yearMonth}/${newUuid()}.jpg`;
+        return await uploadImageToStorage(base64Img, path);
       }));
     } catch (err) {
       setLoading(false);
-      return Toast.fire({ icon: 'error', title: 'Gagal mengupload foto ke Cloudinary.' });
+      return Toast.fire({ icon: 'error', title: 'Gagal mengupload foto.' });
     }
   }
 
@@ -201,8 +208,8 @@ export const handleSubmitJurnalService = async ({
     { 
       class_name: saveClassName, 
       subject: saveSubject, 
-      material: saveMaterial, 
-      photos: photoBase64List,
+      material: saveMaterial,
+      photos: photoPathList,
       created_at: customEntryDate,
       teacher_name: profile.full_name || 'NUR ALFI SYAHRI, S.P.'
     }

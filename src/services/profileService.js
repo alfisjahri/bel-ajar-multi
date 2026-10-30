@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { Toast, uploadImageToCloudinary } from './utils';
+import { Toast, uploadImageToStorage, deleteImageFromStorage, isStoragePath, newUuid } from './utils';
 
 export const fetchProfileService = async (user, setProfile) => {
   try {
@@ -29,6 +29,20 @@ export const handleSaveProfileService = async ({ session, profile, setLoading })
   if (!session) return Toast.fire({ icon: 'error', title: 'Harus login dulu!' });
   setLoading(true);
 
+  // Nilai tanda tangan yang tersimpan SEBELUM upsert — dipakai untuk hapus
+  // file lama setelah pengganti berhasil disimpan (perbaikan file yatim).
+  let prevSignatureUrl = null;
+  try {
+    const { data: prev } = await supabase
+      .from('profiles')
+      .select('signature_url')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    prevSignatureUrl = prev?.signature_url || null;
+  } catch (err) {
+    console.error('Gagal membaca tanda tangan lama:', err);
+  }
+
   const updates = {
     id: session.user.id,
     email: session.user.email,
@@ -56,6 +70,17 @@ export const handleSaveProfileService = async ({ session, profile, setLoading })
   setLoading(false);
 
   if (!error && !authError) {
+    // Perbaikan file yatim: tanda tangan lama (path Storage) yang sudah
+    // diganti dihapus setelah pengganti berhasil tersimpan. URL Cloudinary
+    // lama sengaja tidak dihapus di sini (pembersihan Cloudinary menunggu
+    // perintah eksplisit setelah migrasi terverifikasi).
+    if (
+      prevSignatureUrl &&
+      prevSignatureUrl !== profile.signature_url &&
+      isStoragePath(prevSignatureUrl)
+    ) {
+      deleteImageFromStorage(prevSignatureUrl);
+    }
     Toast.fire({ icon: 'success', title: 'Profil, NIP & Pengaturan Tersimpan!' });
     // Reset temporary password field
     profile.new_password = '';
@@ -73,22 +98,47 @@ export const handleSaveProfileService = async ({ session, profile, setLoading })
   }
 };
 
-export const handleSignatureUploadService = (e, setProfile) => {
+export const handleSignatureUploadService = (e, setProfile, currentSignatureUrl) => {
   const file = e.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onloadend = async () => {
     const base64String = reader.result;
-    
-    Toast.fire({ icon: 'info', title: 'Mengupload TTD ke Cloudinary...' });
+
+    Toast.fire({ icon: 'info', title: 'Mengupload TTD...' });
     try {
-      const cloudinaryUrl = await uploadImageToCloudinary(base64String);
-      setProfile(prev => ({ ...prev, signature_url: cloudinaryUrl }));
-      localStorage.setItem('teacher_sig', cloudinaryUrl);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Sesi login tidak ditemukan');
+      const path = `${user.id}/signature/${newUuid()}.jpg`;
+      await uploadImageToStorage(base64String, path);
+
+      // Bersihkan upload antara yang tidak pernah tersimpan: kalau nilai
+      // state saat ini adalah path Storage TAPI berbeda dari yang tersimpan
+      // di database, itu file yatim dari upload sebelumnya yang dibatalkan —
+      // aman dihapus. Nilai yang sama dengan database dibiarkan, karena
+      // penghapusannya ditangani handleSaveProfileService setelah pengganti
+      // berhasil disimpan (menghindari TTD rusak kalau pengguna batal simpan).
+      if (isStoragePath(currentSignatureUrl)) {
+        try {
+          const { data: saved } = await supabase
+            .from('profiles')
+            .select('signature_url')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (saved?.signature_url !== currentSignatureUrl) {
+            deleteImageFromStorage(currentSignatureUrl);
+          }
+        } catch (err) {
+          console.error('Gagal memeriksa tanda tangan lama:', err);
+        }
+      }
+
+      setProfile(prev => ({ ...prev, signature_url: path }));
+      localStorage.setItem('teacher_sig', path);
       Toast.fire({ icon: 'success', title: 'Gambar TTD berhasil dimuat dan diupload!' });
     } catch (err) {
-      Toast.fire({ icon: 'error', title: 'Gagal mengupload TTD ke Cloudinary.' });
+      Toast.fire({ icon: 'error', title: 'Gagal mengupload TTD.' });
     }
   };
   reader.readAsDataURL(file);

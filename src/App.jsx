@@ -42,10 +42,15 @@ function App() {
   const [lockoutUntil, setLockoutUntil] = useState(() => localStorage.getItem('lockout_until') || null);
 
   // Profil Guru
-  const [profile, setProfile] = useState({ 
-    full_name: localStorage.getItem('teacher_name') || 'NUR ALFI SYAHRI, S.P.', 
-    nip: localStorage.getItem('teacher_nip') || '', 
-    signature_url: localStorage.getItem('teacher_sig') || '' 
+  // Nilai teacher_sig lama yang berbentuk URL Cloudinary sengaja diabaikan:
+  // setelah migrasi, sumber kebenaran tanda tangan adalah profiles.signature_url
+  // (diambil ulang tiap login), bukan cache localStorage lama.
+  const storedSig = localStorage.getItem('teacher_sig') || '';
+  const initialSig = (storedSig.startsWith('http') && storedSig.includes('cloudinary')) ? '' : storedSig;
+  const [profile, setProfile] = useState({
+    full_name: localStorage.getItem('teacher_name') || 'NUR ALFI SYAHRI, S.P.',
+    nip: localStorage.getItem('teacher_nip') || '',
+    signature_url: initialSig
   });
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -480,7 +485,7 @@ function App() {
             isProfileOpen={isProfileOpen} setIsProfileOpen={setIsProfileOpen}
             profile={profile} setProfile={setProfile}
             handleSaveProfile={() => handleSaveProfileService({ session, profile, setLoading })}
-            handleSignatureUpload={(e) => handleSignatureUploadService(e, setProfile)}
+            handleSignatureUpload={(e) => handleSignatureUploadService(e, setProfile, profile.signature_url)}
             isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode}
           />
         )}
