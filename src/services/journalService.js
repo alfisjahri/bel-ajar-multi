@@ -226,6 +226,7 @@ export const handleSubmitJurnalService = async ({
     } catch (attInsertError) {
       console.error('Attendance Insert Error:', attInsertError);
       setLoading(false);
+      // err.data bisa berupa object kosong {} (truthy) — ambil .message-nya dulu, jangan stringify object-nya
       const attMsg = attInsertError?.data?.message || attInsertError?.message || 'Tidak diketahui';
       return Toast.fire({ icon: 'error', title: 'Gagal menyimpan presensi: ' + attMsg });
     }
