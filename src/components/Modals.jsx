@@ -29,7 +29,7 @@ export const AbsenceDetailsModal = ({ studentAbsenceDetails, setStudentAbsenceDe
               {d.photos && d.photos.length > 0 && (
                 <div className="flex gap-1.5 pt-1 overflow-x-auto">
                   {d.photos.map((p, i) => (
-                    <ResolvedImage key={i} value={p} onClick={(src) => setSelectedImageModal(src)} alt="Foto Materi" className="w-12 h-12 object-cover rounded-lg border cursor-pointer hover:opacity-80 active:scale-95" />
+                    <ResolvedImage key={i} value={p} record={d.journalId ? { id: d.journalId, collectionName: 'journals' } : null} onClick={(src) => setSelectedImageModal(src)} alt="Foto Materi" className="w-12 h-12 object-cover rounded-lg border cursor-pointer hover:opacity-80 active:scale-95" />
                   ))}
                 </div>
               )}
@@ -199,7 +199,7 @@ export const PrintPreviewModal = ({ showPreviewModal, setShowPreviewModal, previ
             
             <div className="h-14 my-1 flex items-center justify-start">
               {previewData.signatureUrl ? (
-                <ResolvedImage value={previewData.signatureUrl} alt="TTD Guru" className="max-h-14 max-w-[160px] object-contain" />
+                <ResolvedImage value={previewData.signatureUrl} record={previewData.profileId ? { id: previewData.profileId, collectionName: 'profiles' } : null} alt="TTD Guru" className="max-h-14 max-w-[160px] object-contain" />
               ) : (
                 <div className="h-10 border-b border-dashed border-slate-300 w-full flex items-center text-[7pt] text-slate-400">(Belum ada foto TTD)</div>
               )}

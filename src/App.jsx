@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
+import { pb, eq } from './pbClient';
 import { getWitaDateString } from './services/utils';
 import { Swal } from './services/utils';
 import { getTeacherData } from './utils/constants';
@@ -129,17 +129,18 @@ function App() {
   // Removed hardcoded LOGIKA MAPEL KETAT
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfileService(session.user, setProfile);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) fetchProfileService(session.user, setProfile);
-    });
-
-    return () => subscription.unsubscribe();
+    const applyAuth = (model) => {
+      if (model) {
+        setSession({ user: model });
+        fetchProfileService(model, setProfile);
+      } else {
+        setSession(null);
+      }
+    };
+    // Sesi tersimpan (localStorage PocketBase) langsung valid saat muat.
+    applyAuth(pb.authStore.isValid ? pb.authStore.model : null);
+    const unsub = pb.authStore.onChange((_token, model) => applyAuth(model));
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -206,6 +207,7 @@ function App() {
       teacherName: profile.full_name || 'NUR ALFI SYAHRI, S.P.',
       teacherNip: profile.nip || '-------------------',
       signatureUrl: profile.signature_url,
+      profileId: profile.id || null,
       reportType: reportType,
       reportPeriod: reportPeriod,
       startDate: startDate,
@@ -218,18 +220,29 @@ function App() {
     let studentAtt = [];
     let studentGrades = [];
     if (!isDemo) {
-      const { data } = await supabase
-        .from('attendance')
-        .select('status, date, journal_id, journals!inner(subject, material)')
-        .eq('student_id', student.id)
-        .order('date', { ascending: false });
-      if (data) studentAtt = data;
+      try {
+        const att = await pb.collection('attendance').getFullList({
+          filter: eq('student', student.id),
+          sort: '-date',
+          expand: 'journal',
+        });
+        // Samakan bentuk lama: a.journals = jurnal terkait, a.journal_id = id jurnal.
+        studentAtt = att
+          .map(a => ({ ...a, journal_id: a.journal, journals: a.expand?.journal || null }))
+          .filter(a => a.journals);
+      } catch (err) {
+        console.error('Gagal fetch presensi siswa:', err);
+      }
 
-      const { data: gradeData } = await supabase
-        .from('grades')
-        .select('journal_id, score')
-        .eq('student_id', student.id);
-      if (gradeData) studentGrades = gradeData;
+      try {
+        const gd = await pb.collection('grades').getFullList({
+          filter: eq('student', student.id),
+          fields: 'journal,score',
+        });
+        studentGrades = gd.map(g => ({ journal_id: g.journal, score: g.score }));
+      } catch (err) {
+        console.error('Gagal fetch nilai siswa:', err);
+      }
     }
 
     const gradeMap = {};
@@ -410,7 +423,7 @@ function App() {
               localStorage.setItem('guru_wali_group', val);
               if (session) {
                 // Auto-save silently to profile
-                supabase.from('profiles').update({ guru_wali_group: val }).eq('id', session.user.id).then();
+                pb.collection('profiles').update(session.user.id, { guru_wali_group: val }).catch(() => {});
               }
             }}
             material={material} setMaterial={setMaterial}

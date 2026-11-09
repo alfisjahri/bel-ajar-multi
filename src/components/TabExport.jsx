@@ -170,10 +170,16 @@ const TabExport = ({
 
             <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
               <label className="text-[10.5pt] font-bold text-slate-500 dark:text-slate-400 dark:text-slate-500 block mb-1">Ganti Password (Opsional)</label>
-              <input 
+              <input
                 type="password" className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-medium"
-                placeholder="Kosongkan jika tidak ingin ganti password"
-                value={profile.new_password || ''} 
+                placeholder="Password lama (wajib jika ganti password)"
+                value={profile.old_password || ''}
+                onChange={e => setProfile({...profile, old_password: e.target.value})}
+              />
+              <input
+                type="password" className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[10.5pt] font-medium mt-2"
+                placeholder="Password baru — kosongkan jika tidak ingin ganti"
+                value={profile.new_password || ''}
                 onChange={e => setProfile({...profile, new_password: e.target.value})}
               />
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">*Minimal 6 karakter. Password baru akan aktif saat login berikutnya.</p>
@@ -189,7 +195,7 @@ const TabExport = ({
               {profile.signature_url && (
                 <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
                   <p className="text-[10.5pt] font-bold text-slate-400 dark:text-slate-500 mb-1">Preview TTD Tersimpan:</p>
-                  <ResolvedImage value={profile.signature_url} alt="TTD Guru" className="h-16 mx-auto object-contain" />
+                  <ResolvedImage value={profile.signature_url} record={profile} alt="TTD Guru" className="h-16 mx-auto object-contain" />
                 </div>
               )}
             </div>

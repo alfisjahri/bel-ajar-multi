@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { pb } from '../pbClient';
 import { Toast, Swal } from './utils';
 
 export const handleLoginService = async ({ email, password, loginAttempts, setLoginAttempts, lockoutUntil, setLockoutUntil }) => {
@@ -16,7 +16,12 @@ export const handleLoginService = async ({ email, password, loginAttempts, setLo
     }
   }
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  let error = null;
+  try {
+    await pb.collection('users').authWithPassword(email, password);
+  } catch (err) {
+    error = err;
+  }
 
   if (error) {
     const newAttempts = loginAttempts + 1;
@@ -33,7 +38,8 @@ export const handleLoginService = async ({ email, password, loginAttempts, setLo
         text: 'Login gagal 3 kali berturut-turut untuk keamanan.'
       });
     } else {
-      Toast.fire({ icon: 'error', title: `Gagal Login: ${error.message} (Sisa ${3 - newAttempts}x)` });
+      const msg = error?.data?.message || error?.message || 'Email atau password salah';
+      Toast.fire({ icon: 'error', title: `Gagal Login: ${msg} (Sisa ${3 - newAttempts}x)` });
     }
   } else {
     localStorage.removeItem('login_attempts');
@@ -54,7 +60,7 @@ export const handleLogoutService = (setIsDemo) => {
     cancelButtonText: 'Batal'
   }).then((res) => {
     if (res.isConfirmed) {
-      supabase.auth.signOut();
+      pb.authStore.clear();
       localStorage.removeItem('teacher_name');
       localStorage.removeItem('teacher_nip');
       localStorage.removeItem('teacher_sig');

@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { pb, eq } from '../pbClient';
 import { Toast, Swal } from './utils';
 
 export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedClass, waliClass, guruWaliGroup, profile, setFetchingStudents, setStudents, initAttendance }) => {
@@ -15,27 +15,26 @@ export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedC
     return;
   }
 
-  let query = supabase.from('students').select('*').order('name', { ascending: true });
-
+  let filter = '';
   if (jurnalMode === 'mapel') {
-    query = query.eq('class_name', selectedClass);
+    filter = eq('class_name', selectedClass);
   } else if (jurnalMode === 'wali_kelas') {
-    query = query.eq('class_name', waliClass);
+    filter = eq('class_name', waliClass);
   } else if (jurnalMode === 'guru_wali') {
     if (!profile?.full_name) {
       setStudents([]);
       setFetchingStudents(false);
       return;
     }
-    query = query.eq('group_name', profile.full_name);
+    filter = eq('group_name', profile.full_name);
   }
 
-  const { data, error } = await query;
-
-  if (!error && data) {
+  try {
+    const data = await pb.collection('students').getFullList({ filter, sort: 'name' });
     setStudents(data);
     initAttendance(data);
-  } else {
+  } catch (err) {
+    console.error('Gagal fetch siswa:', err);
     setStudents([]);
   }
   setFetchingStudents(false);
@@ -43,11 +42,18 @@ export const fetchStudentsByModeService = async ({ isDemo, jurnalMode, selectedC
 
 export const fetchAllStudentsService = async ({ isDemo, setAllStudents, setAttendanceRecordsAll }) => {
   if (isDemo) return;
-  const { data: stData } = await supabase.from('students').select('*').order('name', { ascending: true });
-  if (stData) setAllStudents(stData);
-
-  const { data: attData } = await supabase.from('attendance').select('student_id, status, date');
-  if (attData) setAttendanceRecordsAll(attData);
+  try {
+    const stData = await pb.collection('students').getFullList({ sort: 'name' });
+    if (stData) setAllStudents(stData);
+  } catch (err) {
+    console.error('Gagal fetch semua siswa:', err);
+  }
+  try {
+    const attData = await pb.collection('attendance').getFullList({ fields: 'student,status,date' });
+    if (attData) setAttendanceRecordsAll(attData);
+  } catch (err) {
+    console.error('Gagal fetch presensi:', err);
+  }
 };
 
 export const handleToggleKelompok5Service = async ({ student, profile, guruWaliGroup, fetchAllStudents, fetchStudentsByMode }) => {
@@ -56,9 +62,8 @@ export const handleToggleKelompok5Service = async ({ student, profile, guruWaliG
   }
 
   const isFavoritedByMe = student.group_name === profile?.full_name;
-  
+
   if (student.group_name && !isFavoritedByMe) {
-    // If it belongs to someone else, confirm takeover
     const result = await Swal.fire({
       title: 'Sudah Dibina Guru Lain',
       text: `${student.name} saat ini dibina oleh ${student.group_name}. Pindahkan ke binaan Anda?`,
@@ -72,15 +77,15 @@ export const handleToggleKelompok5Service = async ({ student, profile, guruWaliG
 
   const newGroup = isFavoritedByMe ? null : profile?.full_name;
 
-  const { error } = await supabase.from('students').update({ group_name: newGroup }).eq('id', student.id);
-  if (!error) {
-    Toast.fire({ 
-      icon: 'success', 
-      title: isFavoritedByMe ? `${student.name} dilepas dari binaan Anda` : `${student.name} ditambahkan ke binaan Anda` 
+  try {
+    await pb.collection('students').update(student.id, { group_name: newGroup });
+    Toast.fire({
+      icon: 'success',
+      title: isFavoritedByMe ? `${student.name} dilepas dari binaan Anda` : `${student.name} ditambahkan ke binaan Anda`
     });
     fetchAllStudents();
     fetchStudentsByMode();
-  } else {
+  } catch (err) {
     Toast.fire({ icon: 'error', title: 'Gagal mengubah status binaan' });
   }
 };
@@ -89,33 +94,31 @@ export const handleAddStudentService = async ({ e, newStudent, setNewStudent, se
   e.preventDefault();
   if (!newStudent.name.trim()) return;
 
-  const { error } = await supabase.from('students').insert([
-    { name: newStudent.name.toUpperCase(), class_name: newStudent.class_name }
-  ]);
-
-  if (!error) {
+  try {
+    await pb.collection('students').create(
+      { name: newStudent.name.toUpperCase(), class_name: newStudent.class_name }
+    );
     Toast.fire({ icon: 'success', title: 'Siswa berhasil ditambahkan!' });
     setNewStudent({ name: '', class_name: '7' });
     setIsAddingStudent(false);
     fetchAllStudents();
     fetchStudentsByMode();
-  } else {
+  } catch (err) {
     Toast.fire({ icon: 'error', title: 'Gagal tambah siswa' });
   }
 };
 
 export const handleUpdateStudentService = async ({ id, editingStudent, setEditingStudent, fetchAllStudents, fetchStudentsByMode }) => {
-  const { error } = await supabase.from('students').update({
-    name: editingStudent.name.toUpperCase(),
-    class_name: editingStudent.class_name
-  }).eq('id', id);
-
-  if (!error) {
+  try {
+    await pb.collection('students').update(id, {
+      name: editingStudent.name.toUpperCase(),
+      class_name: editingStudent.class_name
+    });
     Toast.fire({ icon: 'success', title: 'Siswa diperbarui!' });
     setEditingStudent(null);
     fetchAllStudents();
     fetchStudentsByMode();
-  } else {
+  } catch (err) {
     Toast.fire({ icon: 'error', title: 'Gagal update siswa' });
   }
 };
@@ -131,11 +134,13 @@ export const handleDeleteStudentService = ({ id, name, fetchAllStudents, fetchSt
     confirmButtonText: 'Ya, Hapus'
   }).then(async (result) => {
     if (result.isConfirmed) {
-      const { error } = await supabase.from('students').delete().eq('id', id);
-      if (!error) {
+      try {
+        await pb.collection('students').delete(id);
         Toast.fire({ icon: 'success', title: 'Siswa terhapus' });
         fetchAllStudents();
         fetchStudentsByMode();
+      } catch (err) {
+        Toast.fire({ icon: 'error', title: 'Gagal menghapus siswa' });
       }
     }
   });
@@ -143,12 +148,16 @@ export const handleDeleteStudentService = ({ id, name, fetchAllStudents, fetchSt
 
 export const handleShowAbsenceDetailsService = async ({ student, setFetchingStudents, setStudentAbsenceDetails }) => {
   setFetchingStudents(true);
-  const { data: absList } = await supabase
-    .from('attendance')
-    .select('journal_id, status, date')
-    .eq('student_id', student.id)
-    .neq('status', 'Hadir')
-    .order('date', { ascending: false });
+  let absList = [];
+  try {
+    absList = await pb.collection('attendance').getFullList({
+      filter: `${eq('student', student.id)} && status != "Hadir"`,
+      sort: '-date',
+      fields: 'id,journal,status,date',
+    });
+  } catch (err) {
+    console.error('Gagal fetch ketidakhadiran:', err);
+  }
 
   if (!absList || absList.length === 0) {
     Toast.fire({ icon: 'info', title: `${student.name} tidak memiliki riwayat ketidakhadiran.` });
@@ -158,14 +167,20 @@ export const handleShowAbsenceDetailsService = async ({ student, setFetchingStud
 
   const details = [];
   for (const item of absList) {
-    const { data: jData } = await supabase.from('journals').select('*').eq('id', item.journal_id).maybeSingle();
+    let jData = null;
+    try {
+      jData = await pb.collection('journals').getOne(item.journal);
+    } catch (err) {
+      jData = null;
+    }
     if (jData) {
       let parsedPhotos = jData.photos || [];
       if (typeof parsedPhotos === 'string') {
-        try { parsedPhotos = JSON.parse(parsedPhotos); } catch(e) { parsedPhotos = [parsedPhotos]; }
+        try { parsedPhotos = JSON.parse(parsedPhotos); } catch (e) { parsedPhotos = [parsedPhotos]; }
       }
 
       details.push({
+        journalId: jData.id,
         date: item.date,
         status: item.status,
         subject: jData.subject,
