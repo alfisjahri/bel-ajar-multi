@@ -224,8 +224,10 @@ export const handleSubmitJurnalService = async ({
     try {
       await Promise.all(attRecords.map((r) => pb.collection('attendance').create(r)));
     } catch (attInsertError) {
-      alert('Gagal menyimpan presensi: ' + JSON.stringify(attInsertError?.data || attInsertError?.message));
       console.error('Attendance Insert Error:', attInsertError);
+      setLoading(false);
+      const attMsg = attInsertError?.data?.message || attInsertError?.message || 'Tidak diketahui';
+      return Toast.fire({ icon: 'error', title: 'Gagal menyimpan presensi: ' + attMsg });
     }
 
     if (jurnalMode === 'mapel') {
