@@ -272,6 +272,7 @@ const TabReview = ({
                             <ResolvedImage
                               key={i}
                               value={url}
+                              record={j}
                               alt="Dokumentasi Jurnal"
                               onClick={(src) => setSelectedImageModal(src)}
                               className="w-20 h-20 object-cover rounded-xl border-2 border-white shadow-md cursor-pointer hover:opacity-80 active:scale-95 transition-all flex-shrink-0"

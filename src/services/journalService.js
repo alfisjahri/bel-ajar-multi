@@ -1,17 +1,24 @@
-import { supabase } from '../supabaseClient';
-import { Toast, Swal, compressImageToBase64, uploadImageToStorage, deleteImageByValue, newUuid } from './utils';
+import { pb, eq } from '../pbClient';
+import { Toast, Swal, compressImageToBase64, base64ToFile, newUuid } from './utils';
+
+// Hapus semua record koleksi yang cocok dengan filter (PocketBase tak punya
+// bulk-delete; ambil daftar lalu hapus satu per satu).
+const deleteByFilter = async (collection, filter) => {
+  const rows = await pb.collection(collection).getFullList({ filter, fields: 'id' });
+  await Promise.all(rows.map((r) => pb.collection(collection).delete(r.id)));
+};
 
 export const fetchJournalsHistoryService = async ({ isDemo, setFetchingHistory, setJournalsHistory, profile }) => {
   if (isDemo || !profile?.full_name) return;
   setFetchingHistory(true);
-  const { data, error } = await supabase
-    .from('journals')
-    .select('*')
-    .eq('teacher_name', profile.full_name)
-    .order('created_at', { ascending: false });
-
-  if (!error && data) {
+  try {
+    const data = await pb.collection('journals').getFullList({
+      filter: eq('teacher_name', profile.full_name),
+      sort: '-created_at',
+    });
     setJournalsHistory(data);
+  } catch (err) {
+    console.error('Gagal fetch riwayat jurnal:', err);
   }
   setFetchingHistory(false);
 };
@@ -23,35 +30,38 @@ export const handleStartEditJournalService = async ({ journal, editingJournal, s
   }
 
   setFetchingHistory(true);
-  let studentListQuery = supabase.from('students').select('*').order('name', { ascending: true });
-
+  let studentFilter = '';
   if (journal.subject === 'Presensi Guru Wali') {
-    studentListQuery = studentListQuery.eq('group_name', journal.class_name);
+    studentFilter = eq('group_name', journal.class_name);
   } else {
-    studentListQuery = studentListQuery.eq('class_name', journal.class_name);
+    studentFilter = eq('class_name', journal.class_name);
   }
 
-  const { data: studentList } = await studentListQuery;
+  let studentList = [];
+  try {
+    studentList = await pb.collection('students').getFullList({ filter: studentFilter, sort: 'name' });
+  } catch (err) {
+    console.error('Gagal fetch siswa:', err);
+  }
 
-  const { data: attData } = await supabase
-    .from('attendance')
-    .select('*')
-    .eq('journal_id', journal.id);
-
-  const { data: gradeData } = await supabase
-    .from('grades')
-    .select('*')
-    .eq('journal_id', journal.id);
+  let attData = [];
+  let gradeData = [];
+  try {
+    attData = await pb.collection('attendance').getFullList({ filter: eq('journal', journal.id) });
+  } catch (err) { console.error('Gagal fetch presensi:', err); }
+  try {
+    gradeData = await pb.collection('grades').getFullList({ filter: eq('journal', journal.id) });
+  } catch (err) { console.error('Gagal fetch nilai:', err); }
 
   const initialAtt = {};
   const initialGrades = {};
 
   if (studentList) {
     studentList.forEach(s => {
-      const foundAtt = attData?.find(a => a.student_id === s.id);
+      const foundAtt = attData?.find(a => a.student === s.id);
       initialAtt[s.id] = foundAtt ? foundAtt.status : 'Hadir';
 
-      const foundGrade = gradeData?.find(g => g.student_id === s.id);
+      const foundGrade = gradeData?.find(g => g.student === s.id);
       initialGrades[s.id] = foundGrade ? foundGrade.score.toString() : '';
     });
   }
@@ -73,41 +83,44 @@ export const handleSaveFullJournalService = async ({ editingJournal, setSavingEd
   if (!editingJournal) return;
   setSavingEdit(true);
 
-  const { error: jErr } = await supabase
-    .from('journals')
-    .update({ material: editingJournal.material })
-    .eq('id', editingJournal.id);
-
-  if (jErr) {
-    Toast.fire({ icon: 'error', title: 'Gagal update materi: ' + jErr.message });
+  try {
+    await pb.collection('journals').update(editingJournal.id, { material: editingJournal.material });
+  } catch (jErr) {
+    Toast.fire({ icon: 'error', title: 'Gagal update materi: ' + (jErr?.data?.message || jErr?.message) });
     setSavingEdit(false);
     return;
   }
 
-  await supabase.from('attendance').delete().eq('journal_id', editingJournal.id);
-  const newAttRecords = editStudentsList.map(s => ({
-    journal_id: editingJournal.id,
-    student_id: s.id,
-    status: editingJournal.attendance[s.id] || 'Hadir',
-    date: editingJournal.created_at
-  }));
-  await supabase.from('attendance').insert(newAttRecords);
+  try {
+    await deleteByFilter('attendance', eq('journal', editingJournal.id));
+    const newAttRecords = editStudentsList.map(s => ({
+      journal: editingJournal.id,
+      student: s.id,
+      status: editingJournal.attendance[s.id] || 'Hadir',
+      date: editingJournal.created_at
+    }));
+    await Promise.all(newAttRecords.map((r) => pb.collection('attendance').create(r)));
 
-  await supabase.from('grades').delete().eq('journal_id', editingJournal.id);
-  const newGradeRecords = [];
-  for (const s of editStudentsList) {
-    const scoreVal = editingJournal.grades[s.id];
-    if (scoreVal !== undefined && scoreVal !== null && scoreVal !== '') {
-      newGradeRecords.push({
-        journal_id: editingJournal.id,
-        student_id: s.id,
-        score: parseFloat(scoreVal),
-        date: editingJournal.created_at
-      });
+    await deleteByFilter('grades', eq('journal', editingJournal.id));
+    const newGradeRecords = [];
+    for (const s of editStudentsList) {
+      const scoreVal = editingJournal.grades[s.id];
+      if (scoreVal !== undefined && scoreVal !== null && scoreVal !== '') {
+        newGradeRecords.push({
+          journal: editingJournal.id,
+          student: s.id,
+          score: parseFloat(scoreVal),
+          date: editingJournal.created_at
+        });
+      }
     }
-  }
-  if (newGradeRecords.length > 0) {
-    await supabase.from('grades').insert(newGradeRecords);
+    if (newGradeRecords.length > 0) {
+      await Promise.all(newGradeRecords.map((r) => pb.collection('grades').create(r)));
+    }
+  } catch (err) {
+    Toast.fire({ icon: 'error', title: 'Gagal simpan presensi/nilai: ' + (err?.data?.message || err?.message) });
+    setSavingEdit(false);
+    return;
   }
 
   Toast.fire({ icon: 'success', title: 'Jurnal & Nilai Tersimpan Instan!' });
@@ -128,27 +141,14 @@ export const handleDeleteJournalService = ({ journal, fetchJournalsHistory }) =>
     cancelButtonText: 'Batal'
   }).then(async (result) => {
     if (result.isConfirmed) {
-      // Parse photos if it's stringified JSON
-      let photoList = journal.photos || [];
-      if (typeof photoList === 'string') {
-        try { photoList = JSON.parse(photoList); } catch(e) { photoList = [photoList]; }
-      }
-
-      await supabase.from('attendance').delete().eq('journal_id', journal.id);
-      await supabase.from('grades').delete().eq('journal_id', journal.id);
-      const { error } = await supabase.from('journals').delete().eq('id', journal.id);
-
-      if (!error) {
-        // Delete images silently in background (Storage path atau URL Cloudinary lama)
-        if (Array.isArray(photoList) && photoList.length > 0) {
-          photoList.forEach(value => {
-            if (value) deleteImageByValue(value);
-          });
-        }
-        
+      try {
+        await deleteByFilter('attendance', eq('journal', journal.id));
+        await deleteByFilter('grades', eq('journal', journal.id));
+        // File foto ikut terhapus bersama record (field file PocketBase).
+        await pb.collection('journals').delete(journal.id);
         Toast.fire({ icon: 'success', title: 'Jurnal berhasil dihapus' });
         fetchJournalsHistory();
-      } else {
+      } catch (err) {
         Toast.fire({ icon: 'error', title: 'Gagal menghapus jurnal' });
       }
     }
@@ -161,26 +161,21 @@ export const handleSubmitJurnalService = async ({
   setMaterial, setWaliNotes, setGuruWaliGroup, setPhotos, setPhotoPreviews, setGrades, initAttendance, profile
 }) => {
   if (isDemo) return Toast.fire({ icon: 'info', title: 'Mode Demo: Data tidak tersimpan.' });
-  
+
   if (jurnalMode === 'mapel' && !material.trim()) {
     return Toast.fire({ icon: 'warning', title: 'Isi materi pembelajaran dulu!' });
   }
 
   setLoading(true);
-  let photoPathList = [];
+  let photoFileList = [];
 
   if (photoFiles.length > 0) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Sesi login tidak ditemukan');
-      // Bulan entri jurnal (YYYY-MM) — diambil dari string tanggal, anti geser zona waktu.
-      const yearMonth = /^\d{4}-\d{2}/.test(journalDate)
-        ? journalDate.slice(0, 7)
-        : new Date().toISOString().slice(0, 7);
-      photoPathList = await Promise.all(photoFiles.map(async (file) => {
+      const user = pb.authStore.model;
+      if (!user || !pb.authStore.isValid) throw new Error('Sesi login tidak ditemukan');
+      photoFileList = await Promise.all(photoFiles.map(async (file) => {
         const base64Img = await compressImageToBase64(file);
-        const path = `${user.id}/${yearMonth}/${newUuid()}.jpg`;
-        return await uploadImageToStorage(base64Img, path);
+        return base64ToFile(base64Img, `${newUuid()}.jpg`);
       }));
     } catch (err) {
       setLoading(false);
@@ -189,7 +184,7 @@ export const handleSubmitJurnalService = async ({
   }
 
   const customEntryDate = new Date(journalDate);
-  
+
   let saveClassName = selectedClass;
   let saveSubject = selectedSubject;
   let saveMaterial = material;
@@ -204,33 +199,46 @@ export const handleSubmitJurnalService = async ({
     saveMaterial = waliNotes.trim() || `Presensi Harian Binaan Guru Wali (${profile?.full_name || 'NUR ALFI SYAHRI, S.P.'})`;
   }
 
-  const { data: journal, error } = await supabase.from('journals').insert([
-    { 
-      class_name: saveClassName, 
-      subject: saveSubject, 
+  let journal = null;
+  try {
+    const payload = {
+      class_name: saveClassName,
+      subject: saveSubject,
       material: saveMaterial,
-      photos: photoPathList,
       created_at: customEntryDate,
       teacher_name: profile.full_name || 'NUR ALFI SYAHRI, S.P.'
-    }
-  ]).select().single();
+    };
+    if (photoFileList.length > 0) payload.photos = photoFileList;
+    if (profile?.id) payload.user = profile.id;
+    journal = await pb.collection('journals').create(payload);
+  } catch (error) {
+    setLoading(false);
+    return Toast.fire({ icon: 'error', title: 'Gagal simpan: ' + (error?.data?.message || error?.message) });
+  }
 
-  if (!error && journal) {
+  if (journal) {
     const attRecords = students.map(s => ({
-      journal_id: journal.id, student_id: s.id, status: attendance[s.id] || 'Hadir', date: customEntryDate
+      journal: journal.id, student: s.id, status: attendance[s.id] || 'Hadir', date: customEntryDate
     }));
 
-    const { error: attInsertError } = await supabase.from('attendance').insert(attRecords);
-    if (attInsertError) {
-      alert("Gagal menyimpan presensi: " + JSON.stringify(attInsertError));
-      console.error("Attendance Insert Error:", attInsertError);
+    try {
+      await Promise.all(attRecords.map((r) => pb.collection('attendance').create(r)));
+    } catch (attInsertError) {
+      alert('Gagal menyimpan presensi: ' + JSON.stringify(attInsertError?.data || attInsertError?.message));
+      console.error('Attendance Insert Error:', attInsertError);
     }
 
     if (jurnalMode === 'mapel') {
       const gradeRecords = students.filter(s => grades[s.id]).map(s => ({
-        journal_id: journal.id, student_id: s.id, score: parseFloat(grades[s.id]), date: customEntryDate
+        journal: journal.id, student: s.id, score: parseFloat(grades[s.id]), date: customEntryDate
       }));
-      if (gradeRecords.length > 0) await supabase.from('grades').insert(gradeRecords);
+      if (gradeRecords.length > 0) {
+        try {
+          await Promise.all(gradeRecords.map((r) => pb.collection('grades').create(r)));
+        } catch (err) {
+          console.error('Grade Insert Error:', err);
+        }
+      }
     }
 
     Swal.fire({
@@ -248,8 +256,6 @@ export const handleSubmitJurnalService = async ({
     setPhotoPreviews([]);
     setGrades({});
     initAttendance(students);
-  } else {
-    Toast.fire({ icon: 'error', title: 'Gagal simpan: ' + error?.message });
   }
   setLoading(false);
 };
@@ -283,16 +289,20 @@ export const handleTriggerExportPreviewService = async ({
     }
 
     // Step 2: Fetch students
-    let stQuery = supabase.from('students').select('*').order('name', { ascending: true });
+    let stFilter = '';
     if (reportType === 'mapel' || reportType === 'wali_kelas') {
-      stQuery = stQuery.eq('class_name', targetClassName);
+      stFilter = eq('class_name', targetClassName);
     } else if (reportType === 'guru_wali') {
-      stQuery = stQuery.eq('group_name', profile?.full_name);
+      stFilter = eq('group_name', profile?.full_name);
     } else {
-      stQuery = stQuery.eq('class_name', reportClass);
+      stFilter = eq('class_name', reportClass);
     }
-    const { data } = await stQuery;
-    if (data) targetStudents = data;
+    try {
+      targetStudents = await pb.collection('students').getFullList({ filter: stFilter, sort: 'name' });
+    } catch (err) {
+      console.error('Gagal fetch siswa laporan:', err);
+      targetStudents = [];
+    }
   }
 
   let fromDate = new Date();
@@ -302,13 +312,11 @@ export const handleTriggerExportPreviewService = async ({
     fromDate.setHours(0, 0, 0, 0);
     toDate.setHours(23, 59, 59, 999);
   } else if (reportPeriod === 'mingguan') {
-    // Get Monday of the current week
     const day = fromDate.getDay();
     const diffToMonday = fromDate.getDate() - day + (day === 0 ? -6 : 1);
     fromDate.setDate(diffToMonday);
     fromDate.setHours(0, 0, 0, 0);
-    
-    // Get Saturday of the current week
+
     toDate = new Date(fromDate);
     toDate.setDate(fromDate.getDate() + 5);
     toDate.setHours(23, 59, 59, 999);
@@ -331,34 +339,40 @@ export const handleTriggerExportPreviewService = async ({
   let gradeSummaryMap = {};
 
   if (!isDemo && targetStudents.length > 0) {
-    const { data: matchedJournals } = await supabase
-      .from('journals')
-      .select('id, created_at')
-      .eq('class_name', targetClassName)
-      .eq('subject', targetSubjectName)
-      .gte('created_at', fromDate.toISOString())
-      .lte('created_at', toDate.toISOString());
+    let matchedJournals = [];
+    try {
+      matchedJournals = await pb.collection('journals').getFullList({
+        filter: `${eq('class_name', targetClassName)} && ${eq('subject', targetSubjectName)} && created_at >= "${fromDate.toISOString()}" && created_at <= "${toDate.toISOString()}"`,
+        fields: 'id,created_at',
+      });
+    } catch (err) {
+      console.error('Gagal fetch jurnal laporan:', err);
+    }
 
     if (matchedJournals && matchedJournals.length > 0) {
       const journalIds = matchedJournals.map(j => j.id);
+      const journalFilter = journalIds.map((id) => eq('journal', id)).join(' || ');
 
-      const { data: attData, error: attError } = await supabase
-        .from('attendance')
-        .select('journal_id, student_id, status')
-        .in('journal_id', journalIds);
-      
-      // Initialize maps
+      let attData = [];
+      try {
+        attData = await pb.collection('attendance').getFullList({
+          filter: journalFilter,
+          fields: 'journal,student,status',
+        });
+      } catch (err) {
+        console.error('Gagal fetch presensi laporan:', err);
+      }
+
       targetStudents.forEach(s => {
         attSummaryMap[s.id] = { H: 0, S: 0, I: 0, A: 0 };
         gradeSummaryMap[s.id] = [];
       });
 
-      // Count attendance per journal per student
       journalIds.forEach(jid => {
         targetStudents.forEach(s => {
-          const record = attData?.find(a => a.journal_id === jid && a.student_id === s.id);
+          const record = attData?.find(a => a.journal === jid && a.student === s.id);
           const st = record ? (record.status || '').trim().toLowerCase() : 'hadir';
-          
+
           if (st === 'hadir') attSummaryMap[s.id].H++;
           else if (st === 'sakit') attSummaryMap[s.id].S++;
           else if (st === 'izin') attSummaryMap[s.id].I++;
@@ -366,15 +380,20 @@ export const handleTriggerExportPreviewService = async ({
         });
       });
 
-      const { data: gradeData } = await supabase
-        .from('grades')
-        .select('student_id, score')
-        .in('journal_id', journalIds);
+      let gradeData = [];
+      try {
+        gradeData = await pb.collection('grades').getFullList({
+          filter: journalFilter,
+          fields: 'student,score',
+        });
+      } catch (err) {
+        console.error('Gagal fetch nilai laporan:', err);
+      }
 
       if (gradeData) {
         gradeData.forEach(g => {
-          if (!gradeSummaryMap[g.student_id]) gradeSummaryMap[g.student_id] = [];
-          gradeSummaryMap[g.student_id].push(g.score);
+          if (!gradeSummaryMap[g.student]) gradeSummaryMap[g.student] = [];
+          gradeSummaryMap[g.student].push(g.score);
         });
       }
     }
@@ -409,7 +428,7 @@ export const handleTriggerExportPreviewService = async ({
     } else if (reportPeriod === 'semester') {
       return '';
     } else if (reportPeriod === 'harian') {
-      return ''; // Already has date below or not needed in title
+      return '';
     } else {
       return `\n${new Date(fromDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} - ${new Date(toDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     }
@@ -426,7 +445,7 @@ export const handleTriggerExportPreviewService = async ({
 
   let reportTitle = `REKAPITULASI PRESENSI & NILAI (${periodString})`;
   let reportSubtitle = `SMPN 1 Damai  |  Kelas: ${targetClassName}  |  Mata Pelajaran: ${targetSubjectName}`;
-  
+
   let subjectRoleText = `Guru Mata Pelajaran ${targetSubjectName}`;
 
   if (reportType === 'wali_kelas') {

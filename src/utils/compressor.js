@@ -1,8 +1,11 @@
 import imageCompression from 'browser-image-compression';
 
-export async function compressAndUpload(files, supabaseClient) {
+// Catatan: fungsi ini tidak dipakai di mana pun (dead code, dipertahankan
+// agar tidak merusak impor). Jalur upload aktif kini lewat field file
+// PocketBase pada record jurnal (lihat services/journalService.js).
+export async function compressAndUpload(files, _pbClient) {
   const uploadedUrls = [];
-  
+
   const options = {
     maxSizeMB: 0.3, // Maksimal 300KB per foto
     maxWidthOrHeight: 1280,
@@ -13,19 +16,12 @@ export async function compressAndUpload(files, supabaseClient) {
     try {
       const compressedFile = await imageCompression(file, options);
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-      
-      const { data, error } = await supabaseClient.storage
-        .from('journal-photos')
-        .upload(fileName, compressedFile);
-
-      if (!error) {
-        const { data: publicUrlData } = supabaseClient.storage
-          .from('journal-photos')
-          .getPublicUrl(fileName);
-        uploadedUrls.push(publicUrlData.publicUrl);
-      }
+      // Tidak ada upload mandiri di PocketBase; file dikirim bersama record.
+      // Kembalikan nama file sebagai penanda (bukan URL).
+      uploadedUrls.push(fileName);
+      void compressedFile;
     } catch (err) {
-      console.error('Gagal kompres/upload foto:', err);
+      console.error('Gagal kompres foto:', err);
     }
   }
 

@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { pb } from '../pbClient';
 
 // HELPER SweetAlert2 Bawaan CDN
 export const Swal = window.Swal || {
@@ -33,9 +33,9 @@ export const compressImageToBase64 = (file) => {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 600; 
+        const MAX_WIDTH = 600;
         const scaleSize = MAX_WIDTH / img.width;
-        
+
         if (img.width > MAX_WIDTH) {
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scaleSize;
@@ -53,7 +53,7 @@ export const compressImageToBase64 = (file) => {
   });
 };
 
-// UPLOAD IMAGE TO CLOUDINARY
+// UPLOAD IMAGE TO CLOUDINARY (jalur lama, dipertahankan; tidak dipakai alur PocketBase)
 export const uploadImageToCloudinary = async (fileOrBase64) => {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
@@ -86,7 +86,7 @@ export const uploadImageToCloudinary = async (fileOrBase64) => {
   }
 };
 
-// DELETE IMAGE FROM CLOUDINARY
+// DELETE IMAGE FROM CLOUDINARY (jalur lama, dipertahankan)
 export const deleteImageFromCloudinary = async (imageUrl) => {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const apiKey = import.meta.env.VITE_CLOUDINARY_API_KEY;
@@ -98,22 +98,19 @@ export const deleteImageFromCloudinary = async (imageUrl) => {
   }
 
   try {
-    // 1. Extract public_id from URL
     if (!imageUrl.includes('/upload/')) return;
     const afterUpload = imageUrl.split('/upload/')[1];
     const withoutVersion = afterUpload.replace(/^v\d+\//, '');
     const publicId = withoutVersion.substring(0, withoutVersion.lastIndexOf('.'));
 
-    // 2. Generate Signature
     const timestamp = Math.floor(Date.now() / 1000);
     const signatureString = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
-    
+
     const data = new TextEncoder().encode(signatureString);
     const hashBuffer = await crypto.subtle.digest('SHA-1', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    // 3. Request Deletion
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`;
     const formData = new FormData();
     formData.append('public_id', publicId);
@@ -132,20 +129,18 @@ export const deleteImageFromCloudinary = async (imageUrl) => {
 };
 
 // ============================================================================
-// SUPABASE STORAGE (VPS) — jalur upload baru. Cloudinary di atas dipertahankan
-// selama masa transisi dual-format (nilai lama masih URL Cloudinary).
-// Bucket privat 'journal-photos'; database menyimpan PATH, bukan URL.
+// POCKETBASE FILES — foto jurnal & tanda tangan kini field file di record.
+// Database menyimpan NAMA FILE (bukan path/URL); URL dibangun dari record.
 // ============================================================================
 
-export const STORAGE_BUCKET = 'journal-photos';
-
-// URL Cloudinary lama: diawali http dan mengandung 'cloudinary' -> dipakai langsung.
+// URL http lama (mis. Cloudinary) -> dipakai langsung.
 export const isCloudinaryUrl = (value) =>
   typeof value === 'string' && value.startsWith('http') && value.includes('cloudinary');
 
-// Path Storage baru: string tak kosong yang bukan URL.
+// Nama file PocketBase: string tak kosong yang bukan URL dan bukan blob:/data:.
 export const isStoragePath = (value) =>
-  typeof value === 'string' && value !== '' && !value.startsWith('http');
+  typeof value === 'string' && value !== '' && !value.startsWith('http')
+  && !value.startsWith('blob:') && !value.startsWith('data:');
 
 // UUID untuk nama file. crypto.randomUUID tersedia di secure context (HTTPS).
 export const newUuid = () => {
@@ -153,78 +148,68 @@ export const newUuid = () => {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const base64ToBlob = async (fileOrBase64) => {
+export const base64ToBlob = async (fileOrBase64) => {
   if (typeof fileOrBase64 !== 'string') return fileOrBase64;
   const res = await fetch(fileOrBase64);
   return res.blob();
 };
 
-const guessContentType = (fileOrBase64) => {
-  if (typeof fileOrBase64 === 'string') {
-    const m = fileOrBase64.match(/^data:([^;,]+)/);
-    if (m) return m[1];
-  } else if (fileOrBase64 && fileOrBase64.type) {
-    return fileOrBase64.type;
-  }
-  return 'image/jpeg';
-};
-
-// UPLOAD KE SUPABASE STORAGE — mengembalikan path (bukan URL).
-// Memakai sesi login yang sudah ada (anon key + JWT user), tanpa secret di bundle.
-export const uploadImageToStorage = async (fileOrBase64, path) => {
+// Ubah data URL base64 menjadi File siap kirim ke field file PocketBase.
+export const base64ToFile = async (fileOrBase64, filename) => {
   const blob = await base64ToBlob(fileOrBase64);
-  const { error } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .upload(path, blob, { contentType: guessContentType(fileOrBase64), upsert: false });
-
-  if (error) {
-    console.error('Error uploading to Storage:', error);
-    throw error;
-  }
-  return path;
+  const type = blob.type || 'image/jpeg';
+  const name = filename || `${newUuid()}.jpg`;
+  return new File([blob], name, { type });
 };
 
-// HAPUS FILE DARI SUPABASE STORAGE — diam-diam (error hanya dicatat).
-export const deleteImageFromStorage = async (path) => {
-  if (!path) return;
+// URL file PocketBase (koleksi privat -> butuh token file).
+// record = objek record PocketBase (punya id + collectionName/collectionId).
+export const getFileUrl = async (record, filename) => {
+  if (!record || !filename) return '';
   try {
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([path]);
-    if (error) {
-      console.error('Gagal menghapus file di Storage:', error);
-    }
+    const token = await pb.files.getToken();
+    return pb.files.getURL(record, filename, { token });
   } catch (err) {
-    console.error('Error deleting from Storage:', err);
+    console.error('Gagal membuat URL file:', err);
+    return '';
   }
 };
 
-// HAPUS BERDASARKAN FORMAT NILAI (masa transisi):
-// URL Cloudinary lama -> hapus via Cloudinary; path Storage -> hapus via Storage;
-// URL http lain yang tak dikenal -> dibiarkan (bukan milik kita).
+// RESOLVE NILAI TAMPILAN:
+// URL http/blob:/data: -> dipakai langsung;
+// nama file PocketBase + record -> URL file bertoken; tanpa record -> ''.
+export const resolveDisplayUrl = async (value, record) => {
+  if (!value) return '';
+  if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('blob:') || value.startsWith('data:'))) return value;
+  if (!record) return '';
+  return getFileUrl(record, value);
+};
+
+// HAPUS FILE DARI RECORD POCKETBASE — hapus nama file dari field file record.
+// (PocketBase menghapus file fisik saat nama file dihapus dari field.)
+export const deleteFileFromRecord = async (collection, recordId, field, filename) => {
+  if (!collection || !recordId || !field || !filename) return;
+  try {
+    const rec = await pb.collection(collection).getOne(recordId);
+    const current = rec[field];
+    if (!current) return;
+    const next = Array.isArray(current) ? current.filter((f) => f !== filename) : '';
+    await pb.collection(collection).update(recordId, { [field]: next });
+  } catch (err) {
+    console.error('Gagal menghapus file dari record:', err);
+  }
+};
+
+// Kompatibilitas nama lama (dipakai service lama; kini no-op aman):
+// upload/delete storage Supabase sudah tidak ada — file dikirim bersama record.
+export const uploadImageToStorage = async () => {
+  throw new Error('uploadImageToStorage tidak dipakai lagi (PocketBase: file dikirim bersama record).');
+};
+export const deleteImageFromStorage = async () => { /* no-op: file ikut terhapus bersama record/field */ };
 export const deleteImageByValue = async (value) => {
   if (!value) return;
   if (isCloudinaryUrl(value)) return deleteImageFromCloudinary(value);
-  if (isStoragePath(value)) return deleteImageFromStorage(value);
+  // Nama file PocketBase: penghapusan ditangani saat record/field dihapus.
 };
-
-// RESOLVE PATH STORAGE KE SIGNED URL 1 JAM (bucket privat, tidak ada getPublicUrl).
-export const getSignedPhotoUrl = async (path) => {
-  const { data, error } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .createSignedUrl(path, 3600);
-
-  if (error || !data?.signedUrl) {
-    console.error('Gagal membuat signed URL:', error);
-    return '';
-  }
-  return data.signedUrl;
-};
-
-// RESOLVE NILAI TAMPILAN (dual-format):
-// URL http (termasuk Cloudinary lama) -> dipakai langsung;
-// path Storage -> signed URL; kosong -> string kosong.
-export const resolveDisplayUrl = async (value) => {
-  if (!value) return '';
-  if (typeof value === 'string' && value.startsWith('http')) return value;
-  return getSignedPhotoUrl(value);
-};
-
+export const getSignedPhotoUrl = async () => '';
+export const STORAGE_BUCKET = 'journal-photos';
